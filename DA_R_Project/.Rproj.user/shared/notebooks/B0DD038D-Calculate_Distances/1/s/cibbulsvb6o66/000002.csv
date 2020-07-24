@@ -1,0 +1,4 @@
+"0","mega_roi_df <- dti_conn_df %>%"
+"0","  select(-ROI1, -ROI2) %>%"
+"0","  left_join(., fs.roi.euc.dists, by=c(""smushed"")) %>%"
+"0","  select(ROI1, ROI2, n_Fiber_Conns, Euclidean_Distance)"

@@ -1,0 +1,19 @@
+"0","dti_conn_df <- read_excel(""../Data/fiber_counts_fs_ROI.xlsx"", sheet=2) %>%"
+"0","  rename(""ROI1""=""...1"") %>%"
+"0","  pivot_longer(cols=c(-ROI1), names_to=""ROI2"", values_to=""n_Fiber_Conns"")"
+"2","New names:
+* `` -> ...1
+"
+"0","dti_aparc <- read_excel(""../Data/fiber_counts_fs_ROI.xlsx"", sheet=1) %>%"
+"0","  rename(""ROI1""=""...1"") %>%"
+"0","  pivot_longer(cols=c(-ROI1), names_to=""ROI2"", values_to=""n_Fiber_Conns"")"
+"2","New names:
+* `` -> ...1
+"
+"0","dti_conn_df <- rbind(dti_conn_df, dti_aparc) %>%"
+"0","  filter(ROI1 != ROI2) %>%"
+"0","  mutate(smushed = ifelse(ROI1<ROI2, paste(ROI1, ROI2, sep=""_""),"
+"0","         paste(ROI2, ROI1, sep=""_""))) %>%"
+"0","  distinct(smushed, .keep_all = T) %>%"
+"0","  filter(str_detect(ROI1, ""[u|U]nknown"", negate=T),"
+"0","         str_detect(ROI2, ""[u|U]nknown"", negate=T))"

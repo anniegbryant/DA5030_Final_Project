@@ -1,0 +1,32 @@
+{
+    "id": "6DC979AB",
+    "path": null,
+    "project_path": null,
+    "type": "r_dataframe",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1595597263824.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "expression": "mega_roi_df",
+        "caption": "mega_roi_df",
+        "totalObservations": "19846",
+        "displayedObservations": "19846",
+        "variables": "5",
+        "cacheKey": "0D06F53B",
+        "object": "mega_roi_df",
+        "environment": "",
+        "contentUrl": "grid_resource/gridviewer.html?env=&obj=mega_roi_df&cache_key=0D06F53B&max_cols=50",
+        "preview": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1595597254,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1595597263824,
+    "read_only": false,
+    "read_only_alternatives": []
+}
