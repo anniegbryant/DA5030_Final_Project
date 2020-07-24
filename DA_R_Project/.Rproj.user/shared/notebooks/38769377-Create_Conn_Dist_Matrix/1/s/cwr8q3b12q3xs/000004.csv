@@ -1,4 +1,0 @@
-"0","aseg.mni.fs %>%"
-"0","  sample_n(5) %>%"
-"0","  kable(., booktabs=T) %>%"
-"0","  kable_styling(full_width=F)"
