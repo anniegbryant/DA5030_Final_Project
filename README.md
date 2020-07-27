@@ -7,3 +7,4 @@ Project Directory:
 * [Data Cleaning & Shaping](Data_Cleaning_Shaping.md) 
 * [Model Construction & Evaluation](Model_Construct_Eval.md) 
 * [Model Deployment](Model_Deployment.md) 
+* [Acknowledgments](Acknowledgments.md)
