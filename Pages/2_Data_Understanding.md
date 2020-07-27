@@ -1,4 +1,4 @@
-[Project Home](README.md)
+[Project Home](../README.md)
 
 Three datasets in .CSV format were downloaded from the Alzheimer's Disease Neuroimaging Initiative Study Data repository. ADNI data is freely accessible to all registered users.
 

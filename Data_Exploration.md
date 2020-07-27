@@ -1,1 +1,0 @@
-[Project homepage](README.md)

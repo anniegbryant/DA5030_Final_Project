@@ -1,4 +1,4 @@
-[Project Home](README.md) 
+[Project Home](../README.md) 
 
 # Acknowledgments
 

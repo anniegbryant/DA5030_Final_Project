@@ -1,10 +1,11 @@
 ## Welcome to my DA5030 Final Project Page!
 
-Project Directory: 
-* [CRISP-DM Overview](CRISP_DM.md) 
-* [Data Acquisition](Data_Acquisition.md) 
-* [Data Exploration](Data_Exploration.md) 
-* [Data Cleaning & Shaping](Data_Cleaning_Shaping.md) 
-* [Model Construction & Evaluation](Model_Construct_Eval.md) 
-* [Model Deployment](Model_Deployment.md) 
-* [Acknowledgments](Acknowledgments.md)
+Project Directory:
+
+* [Business Understanding](Pages/Business_Understanding.md)
+* [Data Acquisition](Pages/Data_Understanding.md)
+* [Data Exploration](Pages/Data_Preparation.md)
+* [Data Cleaning & Shaping](Pages/Modeling.md)
+* [Model Construction & Evaluation](Pages/Model_Evaluation.md)
+* [Model Deployment](Pages/Deployment.md) 
+* [Acknowledgments](Pages/Acknowledgments.md)
