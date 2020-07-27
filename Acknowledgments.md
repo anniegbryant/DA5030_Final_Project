@@ -12,8 +12,7 @@ progression of mild cognitive impairment (MCI) and early Alzheimer’s disease (
 Data used in preparation of this GitHub project were obtained from the Alzheimer’s Disease Neuroimaging Initiative
 (ADNI) database (adni.loni.usc.edu). As such, the investigators within the ADNI contributed to the design
 and implementation of ADNI and/or provided data but did not participate in analysis or writing of this GitHub project.
-A complete listing of ADNI investigators can be found at:
-http://adni.loni.usc.edu/wp-content/uploads/how_to_apply/ADNI_Acknowledgement_List.pdf
+A complete listing of ADNI investigators can be found [here](http://adni.loni.usc.edu/wp-content/uploads/how_to_apply/ADNI_Acknowledgement_List.pdf).
 
 Data collection and sharing for the ADNI project was funded by the Alzheimer's Disease Neuroimaging Initiative
 (ADNI) (National Institutes of Health Grant U01 AG024904) and DOD ADNI (Department of Defense award
