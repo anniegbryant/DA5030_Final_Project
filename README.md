@@ -1,4 +1,7 @@
-## Welcome to GitHub Pages
+## Welcome to my DA5030 Final Project Page!
+
+Project Directory: 
+* [Data Acquisition](Data_Acquisition.md)
 
 You can use the [editor on GitHub](https://github.com/anniegbryant/DA5030_Final_Project/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
 
