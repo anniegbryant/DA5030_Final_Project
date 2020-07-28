@@ -2,6 +2,7 @@
 output: 
   html_document:
     keep_md: true
+    css: "my_style.css"
 ---
 
 <script src="hideOutput.js"></script>
