@@ -2,9 +2,21 @@
 output: 
   html_document:
     keep_md: true
+    html_widgets: true
 ---
 
 [Project Home](../README.md)
+
+# A collapsible section with markdown
+<details>
+  <summary>Click to expand!</summary>
+  
+  ## Heading
+  1. A numbered
+  2. list
+     * With some
+     * Sub bullets
+</details>
 
 Three datasets in .CSV format were downloaded from the Alzheimer's Disease Neuroimaging Initiative Study Data repository. ADNI data is freely accessible to all registered users.
 
