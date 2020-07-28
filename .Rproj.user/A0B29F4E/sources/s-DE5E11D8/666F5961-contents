@@ -36,7 +36,7 @@ Longitudinal **18F-AV-1451 tau-PET data** was downloaded from Study Data/Imaging
 
 Each row represents one tau-PET scan; some subjects had repeated scans separated by approximately one year, while other subjects had only one scan. Columns include subject information including anonymized subject ID, visit code, and PET exam date. The other columns encode regional volume and tau-PET uptake. Specifically, there are 123 distinct cortical and subcortical regions of interest (ROIs), each of which has a volume field (in mm^3) and a tau-PET uptake field, called the Standardized Uptake Value Ratio (SUVR). 
 
-```{r, out.width = "300px"}
+```{r, echo=F, out.width = "300px"}
 knitr::include_graphics("../Images/cerebellum.png")
 ```
 
@@ -72,3 +72,62 @@ The general cognitive status and cognitive diagnosis dataset was downloaded from
 
 </details>
 
+
+<html>
+<style>
+details > summary {
+  padding: 4px;
+  font-size: 10px;
+  width: 600px;
+  border: none;
+  cursor: pointer;
+}
+
+details > p {
+  padding: 4px;
+  margin: 0;
+}
+</style>
+<body>
+
+
+#### Data Loading & Exploration
+
+<details>
+  <summary>View packages used</summary>
+  
+```{r}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(plotly)
+library(lubridate)
+library(forcats)
+```
+
+</details>
+
+#### Load tau-PET data, as downloaded from ADNI:
+```{r}
+tau.df <- read.csv("../../ADNI_Data/Raw_Data/UCBERKELEYAV1451_PVC_05_12_20.csv")
+str(tau.df)
+```
+
+
+#### Scan date distribution
+
+18F-AV-1451 is a relatively recent PET tracer, and was only incorporated into the ADNI-3 pipeline beginning in 2016. I am curious about the temporal distribution of the FreeSurfer-analyzed scans here:
+
+<details>
+  <summary>Code</summary>
+```{r}
+tau.df %>%
+  select(RID, EXAMDATE) %>%
+  mutate(Scan_Date = as.Date(EXAMDATE, format="%m/%d/%Y")) %>%
+  plot_ly(x=~Scan_Date, type="histogram") %>%
+  layout(title = 'Tau-PET Scan Date Distribution',
+         xaxis = list(title = 'Scan Date',
+                      zeroline = TRUE),
+         yaxis = list(title = 'Number of PET Scans')) 
+```
+</details>
