@@ -1,6 +1,6 @@
 ## Welcome to my DA5030 Final Project Page!
 
-Project Directory:
+Here's the Project Directory:
 
 * [Business Understanding](Pages/1_Business_Understanding.md)
 * [Data Understanding](Pages/2_Data_Understanding.md)
