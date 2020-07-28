@@ -2,8 +2,9 @@
 output: 
   html_document:
     keep_md: true
-    code_folding: hide
 ---
+
+<script src="hideOutput.js"></script>
 
 <html>
 <style>
@@ -101,6 +102,7 @@ str(tau.df)
 
 18F-AV-1451 is a relatively recent PET tracer, and was only incorporated into the ADNI-3 pipeline beginning in 2016. I am curious about the temporal distribution of the FreeSurfer-analyzed scans here:
 
+<div class="fold s">
 ```{r}
 tau.df %>%
   select(RID, EXAMDATE) %>%
@@ -111,6 +113,8 @@ tau.df %>%
                       zeroline = TRUE),
          yaxis = list(title = 'Number of PET Scans')) 
 ```
+</div>
+
 
 #### Number of PET scans per subject 
 
