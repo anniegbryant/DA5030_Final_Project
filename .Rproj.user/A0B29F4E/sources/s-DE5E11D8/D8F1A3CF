@@ -1,0 +1,32 @@
+{
+    "id": "D8F1A3CF",
+    "path": null,
+    "project_path": null,
+    "type": "r_dataframe",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1595961949054.0,
+    "source_on_save": false,
+    "relative_order": 3,
+    "properties": {
+        "expression": "cog.df",
+        "caption": "cog.df",
+        "totalObservations": 12268,
+        "displayedObservations": 12268,
+        "variables": 54,
+        "cacheKey": "0A61A731",
+        "object": "cog.df",
+        "environment": "",
+        "contentUrl": "grid_resource/gridviewer.html?env=&obj=cog.df&cache_key=0A61A731&max_cols=50",
+        "preview": 0
+    },
+    "folds": "",
+    "lastKnownWriteTime": 8026296482277629962,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1595961949054,
+    "read_only": false,
+    "read_only_alternatives": []
+}
