@@ -5,6 +5,26 @@ output:
     html_widgets: true
 ---
 
+<html>
+<style>
+details > summary {
+  padding: 4px;
+  width: 200px;
+  background-color: #eeeeee;
+  border: none;
+  box-shadow: 1px 1px 2px #bbbbbb;
+  cursor: pointer;
+}
+
+details > p {
+  background-color: #eeeeee;
+  padding: 4px;
+  margin: 0;
+  box-shadow: 1px 1px 2px #bbbbbb;
+}
+</style>
+<body>
+
 [Project Home](../README.md)
 
 Three datasets in .CSV format were downloaded from the Alzheimer's Disease Neuroimaging Initiative Study Data repository. ADNI data is freely accessible to all registered users.
