@@ -1,0 +1,32 @@
+{
+    "id": "A7AE2149",
+    "path": null,
+    "project_path": null,
+    "type": "r_dataframe",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1595950366546.0,
+    "source_on_save": false,
+    "relative_order": 3,
+    "properties": {
+        "expression": "og_tau",
+        "caption": "og_tau",
+        "totalObservations": "1120",
+        "displayedObservations": "1120",
+        "variables": "165",
+        "cacheKey": "4E735ABA",
+        "object": "og_tau",
+        "environment": "",
+        "contentUrl": "grid_resource/gridviewer.html?env=&obj=og_tau&cache_key=4E735ABA&max_cols=50",
+        "preview": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 4926787777240981876,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1595950366546,
+    "read_only": false,
+    "read_only_alternatives": []
+}
