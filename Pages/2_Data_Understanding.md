@@ -36,7 +36,12 @@ Longitudinal **18F-AV-1451 tau-PET data** was downloaded from Study Data/Imaging
 
 Each row represents one tau-PET scan; some subjects had repeated scans separated by approximately one year, while other subjects had only one scan. Columns include subject information including anonymized subject ID, visit code, and PET exam date. The other columns encode regional volume and tau-PET uptake. Specifically, there are 123 distinct cortical and subcortical regions of interest (ROIs), each of which has a volume field (in mm^3) and a tau-PET uptake field, called the Standardized Uptake Value Ratio (SUVR). 
 
-![Image source: https://www.nottingham.ac.uk/helm/dev/ncc-presentation/page_seven.html](../Images/cerebellum.png)
+
+```r
+knitr::include_graphics("../Images/cerebellum.png")
+```
+
+<img src="../Images/cerebellum.png" width="300px" />
 
 The SUVR value is normalized to the tau-PET uptake in the inferior cerebellum gray matter (highlighted in orange above), a commonly-used region for tau normalization given the lack of inferior cerebellar tau pathology in Alzheimer's Disease. 
 
@@ -56,9 +61,9 @@ The ADAS rating metric was originally created in 1984 to evaluate cognitive dysf
 
 Sources: 
 
-* Rosen, W. G., Mohs, R. C., & Davis, K. L. (1984). A new rating scale for Alzheimer's disease. The American journal of psychiatry. 
-* Mohs, R. C., Knopman, D., Petersen, R. C., Ferris, S. H., Ernesto, C., Grundman, M., ... & Thal, L. J. (1997). Development of cognitive instruments for use in clinical trials of antidementia drugs: additions to the Alzheimer's Disease Assessment Scale that broaden its scope. Alzheimer disease and associated disorders.
-* Skinner, J., Carvalho, J. O., Potter, G. G., Thames, A., Zelinski, E., Crane, P. K., ... & Alzheimer’s Disease Neuroimaging Initiative. (2012). The Alzheimer’s disease assessment scale-cognitive-plus (ADAS-Cog-Plus): an expansion of the ADAS-Cog to improve responsiveness in MCI. Brain imaging and behavior, 6(4), 489-501.
+Rosen, W. G., Mohs, R. C., & Davis, K. L. (1984). A new rating scale for Alzheimer's disease. The American journal of psychiatry. 
+Mohs, R. C., Knopman, D., Petersen, R. C., Ferris, S. H., Ernesto, C., Grundman, M., ... & Thal, L. J. (1997). Development of cognitive instruments for use in clinical trials of antidementia drugs: additions to the Alzheimer's Disease Assessment Scale that broaden its scope. Alzheimer disease and associated disorders.
+Skinner, J., Carvalho, J. O., Potter, G. G., Thames, A., Zelinski, E., Crane, P. K., ... & Alzheimer’s Disease Neuroimaging Initiative. (2012). The Alzheimer’s disease assessment scale-cognitive-plus (ADAS-Cog-Plus): an expansion of the ADAS-Cog to improve responsiveness in MCI. Brain imaging and behavior, 6(4), 489-501.
 
 </details> 
 
