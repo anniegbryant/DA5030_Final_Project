@@ -73,23 +73,6 @@ The general cognitive status and cognitive diagnosis dataset was downloaded from
 </details>
 
 
-<html>
-<style>
-details > summary {
-  padding: 4px;
-  font-size: 10px;
-  width: 600px;
-  border: none;
-  cursor: pointer;
-}
-
-details > p {
-  padding: 4px;
-  margin: 0;
-}
-</style>
-<body>
-
 
 #### Data Loading & Exploration
 
@@ -118,8 +101,6 @@ str(tau.df)
 
 18F-AV-1451 is a relatively recent PET tracer, and was only incorporated into the ADNI-3 pipeline beginning in 2016. I am curious about the temporal distribution of the FreeSurfer-analyzed scans here:
 
-<details>
-  <summary>Code</summary>
 ```{r}
 tau.df %>%
   select(RID, EXAMDATE) %>%
@@ -130,14 +111,12 @@ tau.df %>%
                       zeroline = TRUE),
          yaxis = list(title = 'Number of PET Scans')) 
 ```
-</details>
 
 #### Number of PET scans per subject 
 
 Since this project will explore tau-PET measurements over time, I will be refining the dataset to only subjects with multiple tau-PET scans. Here's the overall distribution of number of longitudinal scans by subject: 
 
-<details>
-  <summary>Code</summary>
+
 ```{r}
 p_num_long <- og_tau %>%
   mutate(RID=as.character(RID)) %>%
@@ -154,7 +133,6 @@ p_num_long <- og_tau %>%
 
 ggplotly(p_num_long)
 ```
-</details>
 
 
 
