@@ -9,10 +9,9 @@ output:
 <style>
 details > summary {
   padding: 4px;
+  font-size: 20px;
   width: 200px;
-  background-color: #eeeeee;
   border: none;
-  box-shadow: 1px 1px 2px #bbbbbb;
   cursor: pointer;
 }
 
@@ -25,7 +24,7 @@ details > p {
 </style>
 <body>
 
-[Project Home](../README.md)
+[Project Home](https://anniegbryant.github.io/DA5030_Final_Project/)
 
 Three datasets in .CSV format were downloaded from the Alzheimer's Disease Neuroimaging Initiative Study Data repository. ADNI data is freely accessible to all registered users.
 
