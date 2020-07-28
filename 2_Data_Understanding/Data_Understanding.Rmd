@@ -7,21 +7,10 @@ output:
 
 [Project Home](../README.md)
 
-# A collapsible section with markdown
-<details>
-  <summary>Click to expand!</summary>
-  
-  ## Heading
-  1. A numbered
-  2. list
-     * With some
-     * Sub bullets
-</details>
-
 Three datasets in .CSV format were downloaded from the Alzheimer's Disease Neuroimaging Initiative Study Data repository. ADNI data is freely accessible to all registered users.
 
 <details>
-  <summary>## Tau-PET</summary>
+  <summary>Tau-PET</summary>
   
   Longitudinal 18F-AV-1451 tau-PET data was acquired from Study Data/Imaging/PET Image Analysis/UC Berkeley - AV1451 Analysis [ADNI2,3] (version: 5/12/2020). This CSV file contains 1,121 rows and 241 columns. Each row represents one tau-PET scan; some subjects had repeated scans separated by approximately one year, while other subjects had only one scan.
 
