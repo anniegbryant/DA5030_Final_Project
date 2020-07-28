@@ -3,22 +3,22 @@
     "path": "D:/DA5030/DA5030_Final_Project/2_Data_Understanding/Data_Understanding.Rmd",
     "project_path": "2_Data_Understanding/Data_Understanding.Rmd",
     "type": "r_markdown",
-    "hash": "0",
+    "hash": "4000358058",
     "contents": "",
     "dirty": false,
     "created": 1595958289324.0,
     "source_on_save": false,
     "relative_order": 5,
     "properties": {
-        "cursorPosition": "515,0",
-        "scrollLine": "515"
+        "cursorPosition": "169,0",
+        "scrollLine": "168"
     },
     "folds": "",
-    "lastKnownWriteTime": 1595963444,
+    "lastKnownWriteTime": 1595964028,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1595963444870,
+    "last_content_update": 1595964028192,
     "read_only": false,
     "read_only_alternatives": []
 }

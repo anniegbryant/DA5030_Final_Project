@@ -168,8 +168,6 @@ p_roi_suvr <- og_tau %>%
 ggplotly(p_roi_suvr, height=1000, width=600, tooltip=c("label", "y"))
 ```
 
-
-
 ### Load ADAS cognitive score data, as downloaded from ADNI:
 ```{r}
 adas <- read.csv("../../ADNI_Data/Raw_Data/ADAS_ADNIGO23.csv")
