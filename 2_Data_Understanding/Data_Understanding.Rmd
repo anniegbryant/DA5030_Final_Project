@@ -131,3 +131,30 @@ tau.df %>%
          yaxis = list(title = 'Number of PET Scans')) 
 ```
 </details>
+
+#### Number of PET scans per subject 
+
+Since this project will explore tau-PET measurements over time, I will be refining the dataset to only subjects with multiple tau-PET scans. Here's the overall distribution of number of longitudinal scans by subject: 
+
+<details>
+  <summary>Code</summary>
+```{r}
+p_num_long <- og_tau %>%
+  mutate(RID=as.character(RID)) %>%
+  group_by(RID) %>%
+  summarise(n_scans=n()) %>%
+  ggplot(., aes(x=fct_reorder(RID, n_scans, .desc=T), y=n_scans)) +
+  geom_bar(stat="identity", aes(fill=n_scans, color=n_scans)) +
+  labs(fill="Count", color="Count") +
+  ggtitle("Number of Longitudinal PET Scans per Subject") +
+  ylab("Number of PET Scans") +
+  xlab("Subject") +
+  theme(axis.text.x=element_blank(),
+        plot.title=element_text(hjust=0.5)) 
+
+ggplotly(p_num_long)
+```
+</details>
+
+
+
