@@ -1,25 +1,25 @@
 {
-    "id": "EFD1B71C",
+    "id": "D3085F59",
     "path": "D:/DA5030/DA5030_Final_Project/2_Data_Understanding/my_style.css",
     "project_path": "2_Data_Understanding/my_style.css",
     "type": "css",
     "hash": "0",
     "contents": "",
     "dirty": false,
-    "created": 1595972153330.0,
+    "created": 1595990886997.0,
     "source_on_save": false,
-    "relative_order": 5,
+    "relative_order": 4,
     "properties": {
         "tempName": "Untitled1",
-        "cursorPosition": "19,1",
+        "cursorPosition": "0,0",
         "scrollLine": "0"
     },
     "folds": "",
-    "lastKnownWriteTime": 1595972185,
+    "lastKnownWriteTime": 1595992155,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1595972185621,
+    "last_content_update": 1595992155668,
     "read_only": false,
     "read_only_alternatives": []
 }

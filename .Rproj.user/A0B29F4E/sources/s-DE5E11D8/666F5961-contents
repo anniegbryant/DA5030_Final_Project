@@ -1,17 +1,16 @@
 ---
+title: "Data Understanding"
 output: 
   html_document:
     keep_md: true
     css: "my_style.css"
 ---
 
-<script src="hideOutput.js"></script>
-
 <html>
 <style>
 details > summary {
   padding: 4px;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: bold;
   width: 600px;
   border: none;
@@ -27,13 +26,19 @@ details > p {
 </style>
 <body>
 
+
+<script src="hideOutput.js"></script>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=F, message=F)
+```
+
 [Project Home](https://anniegbryant.github.io/DA5030_Final_Project/)
 
-Three datasets in .CSV format were downloaded from the Alzheimer's Disease Neuroimaging Initiative (ADNI) Study Data repository. ADNI data is freely accessible to all registered users. Please see [Acknowledgments](https://anniegbryant.github.io/DA5030_Final_Project/Pages/Acknowledgments.html) for more information about ADNI and its contributors.
+Three datasets in CSV format were downloaded from the Alzheimer's Disease Neuroimaging Initiative (ADNI) Study Data repository. ADNI data is freely accessible to all registered users. Please see [my Acknowledgments page](https://anniegbryant.github.io/DA5030_Final_Project/Pages/Acknowledgments.html) for more information about ADNI and its contributors.
 
 <details>
-  <summary>Tau-PET Data</summary>
-  
+<summary>About the Tau-PET Data</summary>
 Longitudinal **18F-AV-1451 tau-PET data** was downloaded from Study Data/Imaging/PET Image Analysis/UC Berkeley - AV1451 Analysis [ADNI2,3] (version: 5/12/2020). This CSV file contains 1,121 rows and 241 columns. 
 
 Each row represents one tau-PET scan; some subjects had repeated scans separated by approximately one year, while other subjects had only one scan. Columns include subject information including anonymized subject ID, visit code, and PET exam date. The other columns encode regional volume and tau-PET uptake. Specifically, there are 123 distinct cortical and subcortical regions of interest (ROIs), each of which has a volume field (in mm^3) and a tau-PET uptake field, called the Standardized Uptake Value Ratio (SUVR). 
@@ -41,7 +46,6 @@ Each row represents one tau-PET scan; some subjects had repeated scans separated
 ```{r, echo=F, out.width = "300px"}
 knitr::include_graphics("../Images/cerebellum.png")
 ```
-
 The SUVR value is normalized to the tau-PET uptake in the inferior cerebellum gray matter (highlighted in orange above), a commonly-used region for tau normalization given the lack of inferior cerebellar tau pathology in Alzheimer's Disease. 
 
 **create figure about tauPET/freesurfer/rois**
@@ -52,13 +56,12 @@ These 123 ROIs were delineated by first co-registering the tau-PET image to a hi
 
 
 <details>
-  <summary>Alzheimer's Disease Assessment Scale-13 Data</summary>
-  
+<summary>About the Alzheimer's Disease Assessment Scale-13 Data</summary>
 Longitudinal Alzheimer's Disease Assessment Scale-13 (ADAS13) cognitive score data was downloaded from Study Data/Assessments/Neuropsychological/Alzheimer's Disease Assessment Scale (ADAS) [ADNIGO,2,3]. This CSV file contains 6,695 rows and 121 columns. Each row represents one clinical visit; most subjects had two or more clinical visits separated by approximately six months to one year each.
 
 The ADAS rating metric was originally created in 1984 to evaluate cognitive dysfunction specifically in Alzheimer's Disease (Rosen et al. 1984). Since its inception, ADAS has been adapted through several iterations to apply to individuals across the cognitive spectrum (Skinner et al. 2012). Namely, the ADAS-modified includes an additional delayed free recall task and a number cancellation task, thus comprising 13 subscales for scoring (Mohs et al. 1997). This yields a total score ranging from 0 to 70; a score of 0 reflects no cognitive impairment, while a score of 70 indicates severe cognitive impairment. There are multiple columns per individual ADAS component, indicating information such as cognitive task assessed, time to complete the task, and task completion score. There are also columns pertaining to subject/visit information, such as anonymized subject ID, visit code, site ID, ADNI project phase, and exam date.
 
-Sources: 
+**Sources:** 
 
 Rosen, W. G., Mohs, R. C., & Davis, K. L. (1984). A new rating scale for Alzheimer's disease. The American journal of psychiatry. 
 Mohs, R. C., Knopman, D., Petersen, R. C., Ferris, S. H., Ernesto, C., Grundman, M., ... & Thal, L. J. (1997). Development of cognitive instruments for use in clinical trials of antidementia drugs: additions to the Alzheimer's Disease Assessment Scale that broaden its scope. Alzheimer disease and associated disorders.
@@ -68,19 +71,17 @@ Skinner, J., Carvalho, J. O., Potter, G. G., Thames, A., Zelinski, E., Crane, P.
 
 
 <details>
-  <summary>General Cognitive Status Data</summary>
-  
+<summary>About the General Cognitive Status Data</summary>
 The general cognitive status and cognitive diagnosis dataset was downloaded from Study Data/Assessments/Diagnosis/Diagnostic Summary [ADNI1,GO,2,3]. This CSV file contains 12,268 rows and 54 columns. Certain columns only pertain to certain subsets of the data depending on the project cohort (ADNI1, ADNI-GO, ADNI2, or ADNI3). There are columns for subject/visit information such as anonymized subject ID, ADNI project phase, and exam date, and the rest of the columns indicate cognitive diagnosis information such as probability of dementia due to AD, current cognitive diagnosis, and change in cognitive status from the previous visit. These metrics were all evaluated by neurologists.
 
 </details>
 
+&nbsp; 
+&nbsp; 
 
 
-#### Data Loading & Exploration
+Packages used to create the below figures:
 
-<details>
-  <summary>View packages used</summary>
-  
 ```{r}
 library(tidyverse)
 library(knitr)
@@ -88,18 +89,16 @@ library(kableExtra)
 library(plotly)
 library(lubridate)
 library(forcats)
+library(DT)
 ```
 
-</details>
 
-#### Load tau-PET data, as downloaded from ADNI:
+Load partial volume corrected regional tau-PET data, as downloaded from ADNI:
 ```{r}
 tau.df <- read.csv("../../ADNI_Data/Raw_Data/UCBERKELEYAV1451_PVC_05_12_20.csv")
-str(tau.df)
+datatable(tau.df[1:6])
 ```
 
-
-#### Scan date distribution
 
 18F-AV-1451 is a relatively recent PET tracer, and was only incorporated into the ADNI-3 pipeline beginning in 2016. I am curious about the temporal distribution of the FreeSurfer-analyzed scans here:
 
@@ -108,7 +107,10 @@ str(tau.df)
 tau.df %>%
   select(RID, EXAMDATE) %>%
   mutate(Scan_Date = as.Date(EXAMDATE, format="%m/%d/%Y")) %>%
-  plot_ly(x=~Scan_Date, type="histogram") %>%
+  plot_ly(x=~Scan_Date, type="histogram",
+          marker = list(color = "lightsteelblue",
+                        line = list(color = "lightslategray",
+                                    width = 1.5))) %>%
   layout(title = 'Tau-PET Scan Date Distribution',
          xaxis = list(title = 'Scan Date',
                       zeroline = TRUE),
@@ -116,14 +118,14 @@ tau.df %>%
 ```
 </div>
 
+Even though ADNI3 began in 2016, most scans were acquired from mid-2017 to present day. This doesn't affect this analysis since the same protocol has been observed.
 
-#### Number of PET scans per subject 
 
 Since this project will explore tau-PET measurements over time, I will be refining the dataset to only subjects with multiple tau-PET scans. Here's the overall distribution of number of longitudinal scans by subject: 
 
-
+<div class="fold s">
 ```{r}
-p_num_long <- og_tau %>%
+p_num_long <- tau.df %>%
   mutate(RID=as.character(RID)) %>%
   group_by(RID) %>%
   summarise(n_scans=n()) %>%
@@ -138,6 +140,577 @@ p_num_long <- og_tau %>%
 
 ggplotly(p_num_long)
 ```
+</div>
+
+The majority of subjects only had one tau-PET scan, and will therefore be omitted from analysis. On that note, it's important to know exactly how many subjects *do* have at least two tau-PET scans:
+
+<div class="fold s">
+```{r, results='asis'}
+num_scans <- tau.df %>%
+  mutate(RID=as.character(RID)) %>%
+  group_by(RID) %>%
+  summarise(n_scans=n()) %>%
+  filter(n_scans>=2) %>%
+  ungroup() %>%
+  summarise(num_subjects=n(),
+            total_scans=sum(n_scans))
+cat("Number of subjects with at least two scans: **", 
+    num_scans$num_subjects, "**\n", 
+    "Number of total PET scans: **", 
+    num_scans$total_scans, "**\n", sep="")
+```
+</div>
+
+So, we have 249 subjects with two or more scans. Another important consideration is the length of time between each consecutive scan. I will eventually normalize changes in tau-PET to number of years passed to yield an annual rate of change, but it's good to know what that time interval is:
 
 
+<div class="fold s">
+
+```{r}
+p_pet_interval <- tau.df %>%
+  select(RID, EXAMDATE) %>%
+  mutate(Scan_Date = as.Date(EXAMDATE, format="%m/%d/%Y")) %>%
+  group_by(RID) %>%
+  mutate(n_scans=n()) %>%
+  filter(n_scans>=2) %>%
+  mutate(Years_between_Scans = 
+           as.numeric((Scan_Date - lag(Scan_Date, 
+                                       default = Scan_Date[1]))/365)) %>%
+  filter(Years_between_Scans>0) %>%
+  ggplot(., aes(x=Years_between_Scans)) +
+  geom_histogram(stat="count", color="lightslategray") +
+  ggtitle("Years in between Tau-PET Scans per Subject") +
+  ylab("Frequency") +
+  xlab("# Years between two consecutive scans for a subject") +
+  theme_minimal() +
+  theme(plot.title=element_text(hjust=0.5)) 
+ggplotly(p_pet_interval)
+```
+</div>
+
+There's a cluster of scans around the one-year mark. Presumably, ADNI3 participants are enrolled in an annual tau-PET plan, though in some cases scans aren't at precise yearly intervals.  
+
+I'll check if there are any missing data points for tau-PET SUVR values for any of the FreeSurfer-derived cortical or subcortical regions of interest (ROIs). Note: this is filtered to show only subjects with at least two scans:
+
+<div class="fold s">
+```{r}
+tau.df %>%
+  select(-VISCODE, -VISCODE2, -update_stamp) %>%
+  group_by(RID) %>%
+  mutate(n_scans=n()) %>%
+  filter(n_scans>=2) %>%
+  select(-n_scans) %>%
+  ungroup() %>%
+  select(!matches("VOLUME")) %>%
+  pivot_longer(cols=c(-RID, -EXAMDATE), names_to="ROI", values_to="SUVR") %>%
+  group_by(ROI) %>%
+  summarise(`Percent Missing` = sum(is.na(SUVR))/n(),
+            `Number Missing` = sum(is.na(SUVR))) %>%
+  datatable()
+```
+
+</div>
+
+All regions have zero missing data points, so no imputation will be necessary. Now, I'll check the distribution of tau-PET uptake values across the ROIs.
+
+<div class="fold s">
+
+```{r}
+p_roi_suvr <- og_tau %>%
+  select(-VISCODE, -VISCODE2, -update_stamp) %>%
+  group_by(RID) %>%
+  mutate(n_scans=n()) %>%
+  filter(n_scans>=2) %>%
+  select(-n_scans) %>%
+  select(!matches("VOLUME")) %>%
+  pivot_longer(cols=c(-RID, -EXAMDATE), names_to="ROI", values_to="SUVR") %>%
+  mutate(ROI = str_replace(ROI, "_SUVR", "")) %>%
+  group_by(ROI) %>%
+  summarise(Mean_SUVR=mean(SUVR, na.rm=T),
+            SD_SUVR = sd(SUVR, na.rm=T),
+            ymin = Mean_SUVR-SD_SUVR,
+            ymax = Mean_SUVR+SD_SUVR) %>%
+  ggplot(data=., mapping=aes(x=fct_reorder(ROI, Mean_SUVR, .desc=F), 
+                             y=Mean_SUVR,
+                             label = ROI)) +
+  geom_bar(stat="identity", show.legend=F, fill="lightsteelblue") +
+  geom_errorbar(aes(ymin=ymin, ymax=ymax), width=0, color="lightslategray") +
+  coord_flip() +
+  theme_minimal() +
+  ylab("Mean Tau-PET SUVR") +
+  xlab("Region of Interest") +
+  ggtitle("Mean Tau-PET SUVR by ROI")
+
+
+ggplotly(p_roi_suvr, height=1000, width=600, tooltip=c("label", "y"))
+```
+
+</div>
+
+
+These values are supposed to be normalized to the inferior cerebellum gray matter, indicated by `INFERIOR_CEREBGM_SUVR`. To confirm, I'll check the distribution of `INFERIOR_CEREBGM_SUVR` values.
+
+<div class="fold s">
+
+```{r}
+p_inf_cb <- tau.df %>%
+  select(-VISCODE, -VISCODE2, -update_stamp) %>%
+  group_by(RID) %>%
+  mutate(n_scans=n()) %>%
+  filter(n_scans>=2) %>%
+  select(-n_scans) %>%
+  select(!matches("VOLUME")) %>%
+  pivot_longer(cols=c(-RID, -EXAMDATE), names_to="ROI", values_to="SUVR") %>%
+  mutate(ROI = str_replace(ROI, "_SUVR", "")) %>%
+  filter(ROI=="INFERIOR_CEREBGM") %>%
+  ggplot(data=., mapping=aes(x=SUVR)) +
+  geom_histogram(aes(y=..count..), fill="lightsteelblue", color="lightslategray") +
+  theme_minimal() +
+  ylab("Number of Occurences") +
+  xlab("Inferior Cerebellum Gray SUVR") +
+  ggtitle("Distribution of Inferior Cerebellum Gray Matter Tau Uptake") +
+  theme(plot.title=element_text(hjust=0.5))
+
+ggplotly(p_inf_cb)
+```
+</div>
+
+Most of the inferior cerebellum gray ROIs have SUVRs around 1.25. I'll re-normalize to this value in Data Preparation to re-calibrate all of the ROIs relative to the inferior cerebellum gray.
+
+
+
+### Load ADAS cognitive score data, as downloaded from ADNI:
+
+
+<div class="fold o">
+```{r}
+adas <- read.csv("../../ADNI_Data/Raw_Data/ADAS_ADNIGO23.csv")
+str(adas)
+```
+</div>
+
+
+The primary variable of interest is `TOTSCORE`, reflecting the sum of the ADAS component sub-scores.
+
+```{r}
+summary(adas$TOTSCORE)
+```
+As verified using `summary()`, this metric ranges from 0 (no cognitive impairment) to 70 (severe cognitive impairment). There are 61 missing data points for this feature, though there are far more records here than will actually be used for analysis. This dataset includes subjects without tau-PET images as well as exam sessions that did not coincide with tau-PET scan sessions, both of which will be excluded once the datasets are merged.
+
+Like with the tau-PET data, I'll also examine the date-of-exam distribution for the ADAS-13 scores:
+
+
+<div class="fold s">
+```{r}
+adas %>%
+  select(RID, USERDATE) %>%
+  mutate(Exam_Date = as.Date(USERDATE, format="%m/%d/%Y")) %>%
+  plot_ly(x=~Exam_Date, type="histogram",
+          marker = list(color = "lightsteelblue",
+                        line = list(color = "lightslategray",
+                                    width = 1.5))) %>%
+  layout(title = 'ADAS-13 Cognitive Assessment Date Distribution',
+         xaxis = list(title = 'Exam Date',
+                      zeroline = TRUE),
+         yaxis = list(title = 'Number of Assessed Subjects')) 
+```
+
+</div>
+
+Many of the ADAS-13 cognitive exams were administered prior to 2016. Since tau-PET was only incorporated into the ADNI pipeline in 2016, these earlier ADAS-13 cognitive scores ultimately will not be included in the modeling stage.
+
+
+
+Let's check how many subjects had more than one ADAS-13 score in this dataset:
+
+<div class="fold s">
+```{r}
+p_adas_long <- adas %>%
+  mutate(RID=as.character(RID)) %>%
+  group_by(RID) %>%
+  summarise(n_exams=n()) %>%
+  ggplot(., aes(x=fct_reorder(RID, n_exams, .desc=T), y=n_exams, label=RID)) +
+  geom_bar(stat="identity", aes(fill=n_exams, color=n_exams)) +
+  labs(fill="Count", color="Count") +
+  ggtitle("Number of Longitudinal ADAS-13 Assessments per Subject") +
+  ylab("Number of ADAS-13 Scores") +
+  xlab("Subject") +
+  theme(axis.text.x=element_blank(),
+        plot.title=element_text(hjust=0.5)) 
+
+ggplotly(p_adas_long, tooltip = c("label", "y"))
+```
+</div>
+
+Unlike with the PET data, most subjects have two or more ADAS-13 scores recorded. The most ADAS-13 scores recorded for one subject maxes out at 11. To examine precisely how many subjects have at least two ADAS-13 scores:
+
+<div class="fold s">
+
+```{r, results='asis'}
+num_adas <- adas %>%
+  mutate(RID=as.character(RID)) %>%
+  group_by(RID) %>%
+  summarise(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  ungroup() %>%
+  summarise(num_subjects=n(),
+            total_exams=sum(n_exams))
+cat("Number of subjects with at least two ADAS-13 cognitive assessments: **", 
+    num_adas$num_subjects, "**\n", 
+    "Number of total ADAS-13 cognitive assessments: **", 
+    num_adas$total_exams, "**\n", sep="")
+```
+
+</div>
+
+
+There are 1,333 subjects with two or more ADAS-13 cognitive assessments in this dataset. This should include all subjects and visit dates included in the tau-PET dataset, which will be confirmed upon merging the datasets in the [Data Preparation](https://anniegbryant.github.io/DA5030_Final_Project/Pages/3_Data_Preparation.html) stage.
+
+It's also worth checking the distribution of time interval between ADAS-13 cognitive assessments across these 1,333 subjects with 2+ assessments:
+
+
+<div class="fold s">
+```{r}
+p_adas_interval <- adas %>%
+  select(RID, USERDATE) %>%
+  mutate(Exam_Date = as.Date(USERDATE, format="%m/%d/%Y")) %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  arrange(Exam_Date) %>%
+  mutate(Years_between_ADAS13 = 
+           as.numeric((Exam_Date - lag(Exam_Date, 
+                                       default = Exam_Date[1]))/365)) %>%
+  filter(Years_between_ADAS13>0) %>%
+  ggplot(., aes(x=Years_between_ADAS13)) +
+  geom_histogram(stat="count", fill="lightsteelblue", color="lightslategray") +
+  ggtitle("Years in between ADAS-13 Assessments per Subject") +
+  ylab("Frequency") +
+  xlab("# Years between two consecutive ADAS-13 assessments") +
+  theme_minimal() +
+  theme(plot.title=element_text(hjust=0.5)) 
+
+ggplotly(p_adas_interval)
+```
+
+</div>
+
+Interestingly, there are clear peaks around 0.5 (six months) and 1 (one year), and a smaller peak around 2 (two years). This indicates most subjects had a baseline assessment and two follow-up assessments at six-month intervals, with a subset going for a two-year follow-up as well. The greatest time interval between ADAS-13 assessments is ~6.5 years, though this is by far the largest. 
+
+Looking at the distribution of `TOTSCORE` in the ADAS-13 dataset, filtered to only those subjects with 2+ assessments:
+
+<div class="fold s">
+```{r}
+p_adas_scores <- adas %>%
+  mutate(Exam_Date = as.Date(USERDATE, format="%m/%d/%Y")) %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  ggplot(data=., mapping=aes(x=TOTSCORE)) +
+  geom_histogram(aes(y=..count..), fill="lightsteelblue", color="lightslategray") +
+  theme_minimal() +
+  ylab("# of Occurences") +
+  xlab("ADAS-13 Total Score") +
+  ggtitle("Distribution of ADAS-13 Total Scores")
+
+ggplotly(p_adas_scores)
+```
+</div>
+
+This distribution does show a positive skew, as the majority of scores fall between 0 and 20. There are only eleven scores greater than 60 in this dataset. This is not necessarily surprising, as scores between 60 to 70 would likely indicate very severe cognitive dysfunction. This `TOTSCORE` variable would be a good candidate for square root transformation later on to normalize its distribution -- log transformation will not be an option as there are values of 0 in this dataset.
+
+
+#### General Cognitive Status
+
+Lastly, I will load and explore the general cognitive status dataset.
+
+<div class="fold o">
+
+```{r}
+cog.df <- read.csv("../../ADNI_Data/Raw_Data/DXSUM_PDXCONV_ADNIALL.csv")
+str(cog.df)
+```
+
+</div>
+
+A value of -4 indicates that the value is missing.
+
+This dataset is a bit tricky, as certain columns only pertain to specific ADNI cohorts. For my purposes, I am interested in the following columns: 
+
+* DXCURREN: current cognitive diagnosis (ADNI1)
+1=NL;2=MCI;3=AD
+
+* DXCONV: has there been a change in cognitive status from previous visit? (ADNI1)
+1=Yes - Conversion;2=Yes - Reversion; 0=No
+Conversion = CN to MCI or MCI to dementia
+Reversion = dementia to MCI or MCI to CN
+
+
+* DXCHANGE: change in cognitive status from previous visit (ADNI2. ADNI-GO)
+1=Stable: NL; 2=Stable: MCI; 3=Stable: Dementia; 4=Conversion: NL to MCI; 5=Conversion: MCI to Dementia; 6=Conversion: NL to Dementia; 7=Reversion: MCI to NL; 8=Reversion: Dementia to MCI; 9=Reversion: Dementia to NL
+
+
+* DIAGNOSIS: current cognitive diagnosis at date of exam (ADNI3)
+1=Yes - Conversion;2=Yes - Reversion; 0=No
+
+
+```{r}
+summary(cog.df %>% select(DXCURREN, DXCONV, DXCHANGE, DIAGNOSIS))
+```
+
+The large numbers of NA values in each column are to be expected, given the disjointed nature of the features. These distinct features will be integrated in Part Three, Data Preparation.
+
+Now, to view the distribution of general cognitive assessment dates:
+
+<div class="fold s">
+```{r}
+cog.df %>%
+  select(RID, EXAMDATE) %>%
+  mutate(Exam_Date = as.Date(EXAMDATE, format="%m/%d/%Y")) %>%
+  plot_ly(x=~Exam_Date, type="histogram",
+          marker = list(color = "lightsteelblue",
+                        line = list(color = "lightslategray",
+                                    width = 1.5))) %>%
+  layout(title = 'General Cognitive Assessment Date Distribution',
+         xaxis = list(title = 'Exam Date',
+                      zeroline = TRUE),
+         yaxis = list(title = 'Number of Assessed Subjects')) 
+```
+</div>
+
+It seems that one subject's exam date was incorrectly inputted as 2109: 
+
+<div class="fold s">
+```{r}
+cog.df %>%
+  mutate(Exam_Date = as.Date(EXAMDATE, format="%m/%d/%Y")) %>%
+  mutate(Year=year(Exam_Date)) %>%
+  filter(Year==2109) %>%
+  select(-PTID) %>%
+  select(Phase:EXAMDATE) %>%
+  kable(., booktabs=T)
+```
+</div>
+
+
+Since the data was entered into the ADNI databse in 2019, a reasonable assumption would be that the exam date should read 7/26/2019 instead of 7/26/2109. This will be addressed in Data Preparation. For now, I'll filter that data point out to visualize the temporal distribution better:
+
+<div class="fold s">
+```{r}
+cog.df %>%
+  select(RID, EXAMDATE) %>%
+  mutate(Exam_Date = as.Date(EXAMDATE, format="%m/%d/%Y")) %>%
+  filter(year(Exam_Date)!=2109) %>%
+  plot_ly(x=~Exam_Date, type="histogram",
+          marker = list(color = "lightsteelblue",
+                        line = list(color = "lightslategray",
+                                    width = 1.5))) %>%
+  layout(title = 'General Cognitive Assessment Date Distribution',
+         xaxis = list(title = 'Exam Date',
+                      zeroline = TRUE),
+         yaxis = list(title = 'Number of Assessed Subjects')) 
+```
+</div>
+
+That's better. This shows there are three clear peaks in time -- 2007, 2012, and 2018. This variable will not affect my analysis since the protocol was consistent, just interesting to note.  
+
+To view the number of general cognitive assessments per subject:
+
+<div class="fold s">
+```{r}
+p_cog_long <- cog.df %>%
+  mutate(RID=as.character(RID)) %>%
+  group_by(RID) %>%
+  summarise(n_exams=n()) %>%
+  ggplot(., aes(x=fct_reorder(RID, n_exams, .desc=T), y=n_exams, label=RID)) +
+  geom_bar(stat="identity", aes(fill=n_exams, color=n_exams)) +
+  labs(fill="Count", color="Count") +
+  ggtitle("Number of Longitudinal General Cognitive Assessments per Subject") +
+  ylab("Number of Cognitive Assessments") +
+  xlab("Subject") +
+  theme(axis.text.x=element_blank(),
+        plot.title=element_text(hjust=0.5)) 
+
+ggplotly(p_cog_long, tooltip = c("label", "y"))
+```
+</div>
+
+As with the ADAS-13 dataset, most subjects have multiple general cognitive assessment reports. Eventually, I will focus on subjects with at least two longitudinal general cognitive assessments, to predict conversion to a more severely impaired cognitive status based on regional tau accumulation over time. 
+
+
+<div class="fold s">
+```{r, results='asis'}
+num_cog <- cog.df %>%
+  mutate(RID=as.character(RID)) %>%
+  group_by(RID) %>%
+  summarise(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  ungroup()%>%
+  summarise(num_subjects=n(),
+            total_exams=sum(n_exams))
+cat("Number of subjects with at least two general cognitive assessments: **", 
+    num_cog$num_subjects, "**\n", 
+    "Number of total general cognitive assessments: **", 
+    num_cog$total_exams, "**\n", sep="")
+```
+
+</div>
+
+There are 2,211 subjects in the general cognitive status dataset with at least two assessments. As with the ADAS-13 dataset, this should fully intersect with all of the tau-PET subjects and corresponding visit dates, which will be verified upon data merging.
+
+While ADNI subjects are typically assessed annually, the temporal distribution should still be examined. Note: I have filtered out the subject with the incorrectly-inputted exam date for visualization.
+
+
+<div class="fold s">
+```{r}
+p_cog_interval <- cog.df %>%
+  select(RID, EXAMDATE) %>%
+  mutate(Exam_Date = as.Date(EXAMDATE, format="%m/%d/%Y")) %>%
+  filter(year(Exam_Date) != 2109) %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  arrange(Exam_Date) %>%
+  mutate(Years_between_Cog_Assess = 
+           as.numeric((Exam_Date - lag(Exam_Date, 
+                                       default = Exam_Date[1]))/365)) %>%
+  filter(Years_between_Cog_Assess>0) %>%
+  ggplot(., aes(x=Years_between_Cog_Assess)) +
+  geom_histogram(stat="count", fill="lightsteelblue", color="lightslategray") +
+  ggtitle("Years in between General Cognitive Assessments per Subject") +
+  ylab("Frequency") +
+  xlab("# Years between two consecutive assessments") +
+  theme_minimal() +
+  theme(plot.title=element_text(hjust=0.5)) 
+
+ggplotly(p_cog_interval)
+```
+
+</div>
+
+The peak close to 0 may reflect assessments administered at a screening appointment and a baseline appointment, which are typically within a short time interval of each other. Otherwise, there are large peaks around six months and one year, indicating that the majority of assessments were within one year of each other. However, there are intervals upward of two years in this dataset, reaching up to over five years. Larger gaps between assessments may pose a challenge in trying to detect cognitive changes associated with regional tau accumulation.  
+
+This dataset is the only one of the three that is disjointed for different ADNI cohorts. Each ADNI cohort is not mutually exclusive; many subjects from ADNI1 roll over into ADNI2, and from ADNI2 into ADNI3. While the cognitive assessments were consistent, data recording processes differed over time. Looking first at the ADNI1 cohort, which includes data on the subject's current diagnosis and change from the previous visit (if any).
+
+<div class="fold s">
+```{r}
+p_adni1_curr <- cog.df %>%
+  filter(!is.na(DXCURREN)) %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  mutate(DXCURREN = factor(DXCURREN, levels=c(1,2,3),
+                           labels=c("Cognitively Normal",
+                                    "Mild Cognitive Impairment", 
+                                    "Dementia"))) %>%
+  ggplot(data=., mapping=aes(x=DXCURREN, fill=DXCURREN)) +
+  geom_histogram(stat="count", show.legend=F) +
+  theme_minimal() +
+  ylab("# of Occurences") +
+  xlab("Current Diagnosis in ADNI1") +
+  ggtitle("Distribution of Current Diagnosis in ADNI1") +
+  theme(plot.title=element_text(hjust=0.5),
+        legend.position='none')
+
+ggplotly(p_adni1_curr)
+```
+</div>
+
+
+In the ADNI1 project, most subjects with more than one assessment were diagnosed with mild cognitive impairment (MCI, green) while approximately equal numbers of subjects were cognitively normal (CN, red) or diagnosed with dementia (blue).
+
+
+
+<div class="fold s">
+
+```{r}
+p_adni1_change <- cog.df %>%
+  filter(!is.na(DXCONV)) %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  mutate(DXCONV = factor(DXCONV, levels=c(0,1,2),
+                         labels=c("Stable",
+                                  "Conversion", 
+                                  "Reversion"))) %>%
+  ggplot(data=., mapping=aes(x=DXCONV, fill=DXCONV)) +
+  geom_histogram(stat="count", show.legend=F) +
+  theme_minimal() +
+  ylab("# of Occurences") +
+  xlab("Cognitive Status Change in ADNI1") +
+  ggtitle("Distribution of Cognitive Status Changes in ADNI1") +
+  theme(plot.title=element_text(hjust=0.5),
+        legend.position='none')
+
+ggplotly(p_adni1_change)
+```
+</div>
+
+In this same ADNI1 cohort, the majority of results show stable cognitive status. There are 203 instances of conversion, meaning a decrease in cognitive ability. By contrast, there are 24 instances of reversion, in which there was observed improvement in the subject's cognitive status.  
+
+ADNI2 did not record current cognitive diagnosis, but only the cognitive status relative to the previous visit: 
+
+<div class="fold s">
+```{r}
+p_adni2_change <- cog.df %>%
+  filter(!is.na(DXCHANGE)) %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  mutate(DXCHANGE = factor(DXCHANGE, levels=c(1:9),
+                           labels=c("Stable CN",
+                                    "Stable MCI",
+                                    "Stable Dementia",
+                                    "CN to MCI",
+                                    "MCI to Dementia",
+                                    "CN to Dementia",
+                                    "MCI to CN",
+                                    "Dementia to MCI",
+                                    "Dementia to CN"))) %>%
+  ggplot(data=., mapping=aes(x=DXCHANGE, fill=DXCHANGE)) +
+  geom_histogram(stat="count", show.legend=F) +
+  theme_minimal() +
+  ylab("# of Occurences") +
+  xlab("Cognitive Status Change in ADNI2") +
+  ggtitle("Distribution of Cognitive Status Changes in ADNI2") +
+  theme(plot.title=element_text(hjust=0.5),
+        legend.position='none',
+        axis.text.x=element_text(angle=45))
+
+ggplotly(p_adni2_change)
+```
+</div>
+
+Most subjects in this group are also cognitively stable, with the majority exhibiting stable MCI. There are 86 instances of CN --> MCI decline and 193 instance of MCI --> dementia decline. There was only one recorded instance of decline directly from CN to dementia. On the flip side, there are 6 instances of improvement from dementia to MCI and 58 instances from MCI to CN.
+
+ADNI3 only includes a current diagnosis data feature:
+
+<div class="fold s">
+
+```{r}
+p_adni3_curr <- cog.df %>%
+  filter(!is.na(DIAGNOSIS)) %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  mutate(DIAGNOSIS = factor(DIAGNOSIS, levels=c(1,2,3),
+                            labels=c("Cognitively Normal",
+                                     "Mild Cognitive Impairment", 
+                                     "Dementia"))) %>%
+  ggplot(data=., mapping=aes(x=DIAGNOSIS, fill=DIAGNOSIS)) +
+  geom_histogram(stat="count", show.legend=F) +
+  theme_minimal() +
+  ylab("# of Occurences") +
+  xlab("Current Diagnosis in ADNI3") +
+  ggtitle("Distribution of Current Diagnosis in ADNI3") +
+  theme(plot.title=element_text(hjust=0.5),
+        legend.position='none')
+
+ggplotly(p_adni3_curr)
+```
+</div>
+
+Interestingly, the majority of subjects currently enrolled in the ADNI3 cohort are cognitively normal. 
+
+While these columns don't all align for each respective cohort, fortunately, there is enough information to put the pieces together. For example, the diagnostic conversion feature in ADNI2 informs the current diagnosis, and aggregating over multiple visits for ADNI subjects can reveal the change in cognitive status across visits. This will all be done through feature engineering in [Data Preparation](https://anniegbryant.github.io/DA5030_Final_Project/Pages/3_Data_Preparation.html).
 

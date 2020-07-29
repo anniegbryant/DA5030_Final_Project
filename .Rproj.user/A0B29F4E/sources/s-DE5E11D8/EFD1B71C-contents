@@ -8,11 +8,13 @@
   float: right;
   font-family: sans-serif;
   border-radius: 8px;
+  
 }
 
 .showopt:hover {
     background-color: #dfe4f2;
     color: #004c93;
+    cursor: pointer;
 }
 
 pre.plot {
