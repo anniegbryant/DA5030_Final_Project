@@ -1,0 +1,107 @@
+---
+title: "Outlier Detection"
+author: "Annie Bryant"
+date: "7/28/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(plotly)
+library(lubridate)
+library(forcats)
+library(readxl)
+library(ggsignif)
+library(DT)
+library(ggpointdensity)
+library(rstatix)
+library(DMwR)
+```
+
+```{r}
+tau.df <- read.csv("../../ADNI_Data/Raw_Data/UCBERKELEYAV1451_PVC_05_12_20.csv")
+```
+ 
+> library(DMwR)
+> # remove "Species", which is a categorical column
+> iris2 <- iris[,1:4]
+> outlier.scores <- lofactor(iris2, k=5)
+> plot(density(outlier.scores))
+
+Outlier detection with LOF (Local Outlier Factor) algorithm:
+
+```{r}
+tau.outliers <- tau.df %>%
+  select(-VISCODE, -VISCODE2, -update_stamp) %>%
+  group_by(RID) %>%
+  mutate(n_scans=n()) %>%
+  filter(n_scans>=2) %>%
+  select(-n_scans) %>%
+  ungroup() %>%
+  select(matches("SUVR"))
+
+outlier.scores <-  lofactor(tau.outliers, 5)
+plot(density(outlier.scores))
+```
+
+> # pick top 5
+
+
+
+
+
+
+
+
+
+
+
+Examine the top five and bottom five ROIs for distribution of SUVR values:
+
+```{r}
+og_tau %>%
+  select(-VISCODE, -VISCODE2, -update_stamp) %>%
+  group_by(RID) %>%
+  mutate(n_scans=n()) %>%
+  filter(n_scans>=2) %>%
+  select(-n_scans) %>%
+  select(!matches("VOLUME")) %>%
+  pivot_longer(cols=c(-RID, -EXAMDATE), names_to="ROI", values_to="SUVR") %>%
+  mutate(ROI = str_replace(ROI, "_SUVR", "")) %>%
+  filter(ROI %in% c("CHOROID", "CTX_RH_ENTORHINAL", "CTX_LH_INFERIORTEMPORAL", "CTX_LH_ENTORHINAL",
+                  "CTX_LH_LATERALOCCIPITAL", "HEMIWM", "BRAIN_STEM", "INFERIOR_CEREBGM",
+                  "LEFT_THALAMUS_PROPER", "RIGHT_THALAMUS_PROPER")) %>%
+  
+  ggplot(data=., mapping=aes(x=SUVR)) +
+  geom_histogram(aes(y=..count..)) +
+  theme_minimal() +
+  facet_wrap(ROI ~ ., scales="free")
+```
+
+
+```{r}
+og_tau %>%
+  select(-VISCODE, -VISCODE2, -update_stamp) %>%
+  group_by(RID) %>%
+  mutate(n_scans=n()) %>%
+  filter(n_scans>=2) %>%
+  select(-n_scans) %>%
+  select(!matches("VOLUME")) %>%
+  pivot_longer(cols=c(-RID, -EXAMDATE), names_to="ROI", values_to="SUVR") %>%
+  mutate(ROI = str_replace(ROI, "_SUVR", "")) %>%
+  filter(ROI %in% c("CHOROID", "CTX_RH_ENTORHINAL", "CTX_LH_INFERIORTEMPORAL", "CTX_LH_ENTORHINAL",
+                  "CTX_LH_LATERALOCCIPITAL", "HEMIWM", "BRAIN_STEM", "INFERIOR_CEREBGM",
+                  "LEFT_THALAMUS_PROPER", "RIGHT_THALAMUS_PROPER")) %>%
+  
+  ggplot(data=., mapping=aes(x=log(SUVR))) +
+  geom_histogram(aes(y=..count..)) +
+  theme_minimal() +
+  facet_wrap(ROI ~ ., scales="free")
+```
