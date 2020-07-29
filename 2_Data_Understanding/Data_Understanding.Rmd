@@ -705,8 +705,10 @@ anova.df <- subj.info %>%
 
 age.dx.anova <- aov(AGE~DX, data=anova.df)
 age.dx.anova
+```
 
-print("Tukey's HSD:\n")
+As it turns out, there is significant between-group variance in age between diagnostic groups. This can be further assessed with Tukey's post-hoc test:
+```{r}
 age.dx.anova %>% tukey_hsd() %>% 
   mutate_at(c("estimate", "conf.low", "conf.high", "p.adj"), function(x) round(x,5))  %>%
   datatable()
@@ -714,7 +716,7 @@ age.dx.anova %>% tukey_hsd() %>%
 
 </div>
 
-As it turns out, there are significant differences in age between the respective diagnostic groups. In addition to sex, I will include age as a covariate where applicable in modeling.
+In addition to sex, I will include age as a covariate where applicable in modeling.
 
 
 #### Outlier detection
