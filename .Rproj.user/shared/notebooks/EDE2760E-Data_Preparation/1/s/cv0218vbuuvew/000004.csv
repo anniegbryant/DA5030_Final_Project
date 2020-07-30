@@ -1,0 +1,7 @@
+"0","tau.df <- tau.df %>%"
+"0","  select(-VISCODE, -update_stamp, -HEMIWM_SUVR, -BRAAK12_SUVR,"
+"0","         -BRAAK34_SUVR, -BRAAK56_SUVR, -OTHER_SUVR) %>%"
+"0","  select(!matches(""VOLUME"")) %>%"
+"0","  group_by(RID) "
+"0",""
+"0","colnames(tau.df) <- str_replace_all(colnames(tau.df), ""_SUVR"", """")"

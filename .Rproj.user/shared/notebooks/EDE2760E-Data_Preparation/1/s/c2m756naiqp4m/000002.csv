@@ -1,0 +1,2 @@
+"0","cooks.distance <- cooks.distance(lm(CDRSB ~ . - RID - interval_num, data=annual.changes))"
+"0","plot(cooks.distance, pch=1, cex=1)"

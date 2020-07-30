@@ -1,3 +1,0 @@
-"0","age.dx.anova %>% tukey_hsd() %>% "
-"0","  mutate_at(c(""estimate"", ""conf.low"", ""conf.high"", ""p.adj""), function(x) round(x,5))  %>%"
-"0","  datatable()"
