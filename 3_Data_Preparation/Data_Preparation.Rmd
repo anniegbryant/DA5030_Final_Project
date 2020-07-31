@@ -275,6 +275,8 @@ Now that the datasets are merged, I can perform outlier detection. Given the mul
 <div class="fold s">
 
 ```{r, results='hold'}
+cooks.distance <- cooks.distance(lm(CDRSB ~ . - RID - interval_num, data=annual.changes))
+
 p.cooks <- data.frame(CD=cooks.distance) %>%
   rownames_to_column(var="Data_Point") %>%
   mutate(Data_Point=as.numeric(Data_Point)) %>%
@@ -470,21 +472,14 @@ linecolors <- c("Component Variance" = "maroon4",
                 "Cumulative Variance" = "green4")
 
 p.var <- variances %>%
-  ggplot(data=., mapping=aes(x=PC, y=Variance_Proportion)) +
-  geom_bar(data=subset(variances, PC < 32), stat="identity", fill="steelblue") +
-  geom_text(aes(label=sprintf("%s%%", 
-                              as.character(round(Variance_Proportion, 1)))), 
-            data=subset(variances, PC < 31.1),
-            nudge_y=2,
-            nudge_x=0.4,
-            size=4,
-            check_overlap = T) +
-  geom_line(aes(x=PC, y=Variance_Proportion, color="Component Variance",), size=0.7,
-            data=subset(variances, PC < 31.1)) +
+  ggplot(data=.) +
+  geom_bar(data=subset(variances, PC < 32), mapping=aes(x=PC, y=Variance_Proportion),
+           stat="identity", fill="steelblue") +
+  geom_line(aes(color="Component Variance", x=PC, y=Variance_Proportion), 
+            size=0.7, data=subset(variances, PC < 31.1), show.legend=F) +
   geom_line(aes(x=PC, y=CumVar, color="Cumulative Variance"), size=0.7,
             data=subset(variances, PC < 32)) +
-  geom_point(data=subset(variances, PC < 31.1), 
-             aes(x=PC, y=Variance_Proportion), size=1.5) +
+  geom_point(aes(x=PC, y=Variance_Proportion),data=subset(variances, PC < 31.1), size=1.5) +
   scale_colour_manual(name="",values=linecolors, 
                       guide = guide_legend(override.aes=list(size=2))) + 
   theme_minimal() +
@@ -500,7 +495,8 @@ p.var <- variances %>%
         legend.position="bottom",
         legend.text = element_text(size=12))
 
-ggplotly(p.var, tooltip=c("x","y"))
+ggplotly(p.var, tooltip=c("x","y")) %>% 
+  layout(legend = list(orientation = "h", y=-0.2))
 ```
 </div>
 

@@ -1,32 +1,11 @@
 ---
-title: "Data Preparation"
+title: "Modeling"
 output: 
   html_document:
-    css: "my_style.css"
+    css: "../my_style.css"
 ---
 
-<html>
-<style>
-details > summary {
-padding: 4px;
-font-size: 16px;
-font-weight: bold;
-width: 600px;
-border: none;
-cursor: pointer;
-}
-
-details > p {
-background-color: #eeeeee;
-padding: 4px;
-margin: 0;
-box-shadow: 1px 1px 2px #bbbbbb;
-}
-</style>
-<body>
-
-
-<script src="hideOutput.js"></script>
+<script src="../hideOutput.js"></script>
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning=F, message=F)
@@ -38,14 +17,14 @@ All packages used to for analysis and figures in this page:
 <div class="fold s">
 ```{r}
 library(tidyverse)
-library(knitr)
-library(kableExtra)
 library(plotly)
 library(DT)
-library(ggcorrplot)
-library(psych)
-library(GGally)
-
+library(glmnet)
+library(caret)
+library(colorRamps)
+library(RColorBrewer)
+library(colorspace)
+library(readxl)
 # remotes::install_github("LCBC-UiO/ggseg")
 # 
 # If that doesn't work: 
@@ -54,17 +33,11 @@ library(GGally)
 # unzip("ggseg.zip")
 # devtools::install_local("ggseg-master")
 library(ggseg)
-
-# remotes::install_github("LCBC-UiO/ggseg3d")
-library(ggseg3d)
-
-# remotes::install_github("LCBC-UiO/ggsegExtra")
-library(ggsegExtra)
 ```
 </div>
 
 
-Load in the data:
+Load in the prepared data:
 
 ```{r}
 load("../Prepared_Data.RData")
@@ -77,15 +50,173 @@ I'll split the data into 75% training and 25% test. I'll use the same rows for t
 set.seed(127)
 train.index <- sample(nrow(annual.changes), nrow(annual.changes)*0.75, replace=F)
 
-original.train <- annual.changes[train.index, ]
-original.test <- annual.changes[-train.index, ]
+original <- annual.changes %>% ungroup() %>% select(-RID, -interval_num) %>%
+  select(CDRSB, amygdala:transversetemporal)
+pca <- post.pca %>% ungroup() %>% select(-RID, -interval_num)
 
-pca.train <- post.pca[train.index, ]
-pca.test <- post.pca[-train.index, ]
+original.train <- original[train.index, ]
+original.test <- original[-train.index, ]
+
+pca.train <- pca[train.index, ]
+pca.test <- pca[-train.index, ]
 ```
+
+
+### Individual models 
+
+#### Elastic Net Regression
+
+<div class="fold s">
+```{r}
+set.seed(127)
+
+# Use 10-fold cross-validation
+myControl <- trainControl(
+  method = "cv", 
+  number = 10
+)
+
+# Train glmnet with caret to try three different alpha values
+# and 100 different values for lambda ranging from 0.0001 to 1
+regularized.model <- train(CDRSB~., data=original.train, 
+                           tuneGrid = expand.grid(
+                             alpha = c(0,0.5,1),
+                             lambda = seq(0.0001, 1, length = 100)
+                           ),
+                           method = "glmnet",
+                           trControl = myControl
+)
+```
+</div>
+
+What are the optimal values for alpha and lambda obtained via cross-validation?
+```{r}
+regularized.model$bestTune
+```
+
+
+What is the importance and coefficient for each of the 31 ROIs?
+
+<div class="fold s">
+```{r}
+roi_importance <- varImp(regularized.model)[[1]] %>% rownames_to_column(var="ROI") %>%
+  dplyr::rename("Importance"="Overall")
+roi_coef <- as.data.frame(as.matrix(coef(regularized.model$finalModel, regularized.model$bestTune$lambda))) %>%
+  rownames_to_column(var="ROI") %>% dplyr::rename("Coefficient"="1")
+regularized_roi_results <- left_join(roi_importance, roi_coef)
+datatable(regularized_roi_results)
+```
+</div>
+
+
+<div class="fold s">
+
+```{r}
+mean_import <- mean(regularized_roi_results$Importance)
+sd_import <- sd(regularized_roi_results$Importance)
+mean_coef <- mean(regularized_roi_results$Coefficient)
+sd_coef <- sd(regularized_roi_results$Coefficient)
+
+p_import_coef <- regularized_roi_results %>%
+  rowwise() %>%
+  mutate(Importance = (Importance-mean_import)/sd_import,
+         Coefficient = (Coefficient-mean_coef)/sd_coef,
+         Color = Coefficient) %>%
+  pivot_longer(cols=c(-ROI, -Color)) %>%
+  ggplot(data=., mapping=aes(x=name, y=value, label=ROI, group=ROI)) +
+  geom_line(aes(color=Color)) +
+  scale_color_continuous_divergingx(palette = 'RdBu', mid = 0, rev=T) + 
+  theme_minimal() +
+  labs(color="Z-Score\n(Coefficient)") +
+  ylab("Z-Score") +
+  xlab("Feature") +
+  ggtitle("ROI Coefficient vs. Feature") +
+  theme(plot.title=element_text(hjust=0.5))
+
+ggplotly(p_import_coef, tooltip=c("label"))
+```
+</div>
+
+
+<div class="fold s">
+```{r, results='hold'}
+ggseg.aparc <- read_excel("../ggseg_roi.xlsx", sheet=1) %>%
+  mutate(Braak=as.numeric(as.roman(Braak)))
+
+ggseg.aseg <- read_excel("../ggseg_roi.xlsx", sheet=2) %>%
+  mutate(Braak=as.numeric(as.roman(Braak)))
+
+pal1 <- colorRampPalette(brewer.pal(9, "Reds"))(100)
+
+mean_import <- mean(regularized_roi_results$Importance)
+sd_import <- sd(regularized_roi_results$Importance)
+mean_coef <- mean(regularized_roi_results$Coefficient)
+sd_coef <- sd(regularized_roi_results$Coefficient)
+
+
+p1 <- regularized_roi_results %>% 
+  left_join(., ggseg.aparc, by=c("ROI"="tau_ROI")) %>%
+  select(Importance, ggseg_ROI) %>%
+  rowwise() %>%
+  mutate(Importance = (Importance-mean_import)/sd_import) %>%
+  dplyr::rename("region"="ggseg_ROI") %>%
+  filter(!is.na(region)) %>%
+  ggseg(atlas="dk", mapping=aes(fill=Importance, label=region)) +
+  ggtitle("Cross-Validated Elastic Net ROI Coefficients + Importance") +
+  scale_fill_continuous_divergingx(palette = 'RdBu', mid = 0, rev=T,
+                                   limits=c(-3,3)) + 
+  ylab("Importance") +
+  labs(fill="Z-score") +
+  theme(axis.text=element_blank(),
+        plot.title=element_text(hjust=0.5, family="calibri"),
+        axis.title.x=element_blank(),
+        axis.title.y=element_text(family="calibri"),
+        legend.title=element_text(family="calibri"),
+        legend.text=element_text(family="calibri"),
+        text=element_text(family="calibri"))
+
+p2 <- regularized_roi_results %>% 
+  left_join(., ggseg.aparc, by=c("ROI"="tau_ROI")) %>%
+  select(Coefficient, ggseg_ROI) %>%
+  rowwise() %>%
+  mutate(Coefficient = (Coefficient-mean_coef)/sd_coef) %>%
+  dplyr::rename("region"="ggseg_ROI") %>%
+  filter(!is.na(region)) %>%
+  ggseg(atlas="dk", mapping=aes(fill=Coefficient, label=region)) +
+  annotate("text", x = 400, y = -40, label = "left", family="calibri") +
+  annotate("text", x = 1300, y = -40, label = "right", family="calibri") +
+  scale_fill_continuous_divergingx(palette = 'RdBu', mid = 0, rev=T) + 
+  ylab("Coefficient") +
+  theme(axis.text=element_blank(),
+        plot.title=element_text(hjust=0.5, family="calibri"),
+        axis.title.x = element_text(family="calibri"),
+        axis.title.y=element_text(angle=0, family="calibri"),
+        legend.position="none",
+        text=element_text(family="calibri"))
+
+
+ggp1 <- ggplotly(p1, dynamicTicks = T, tooltip=c("label", "fill"), width=800, height=400) 
+ggp2 <- ggplotly(p2, dynamicTicks = T, tooltip=c("label", "fill"), width=800, height=400)
+
+subplot(ggp1, ggp2, nrows=2, titleX=T, titleY=T) 
+```
+
+
+
+kNN
+neural net
 
 
 ### Original data  
 
 
+
+
 ### PCA-transformed data
+
+Elastic net x3
+kNN x3
+neural net x3
+
+
+Compare accuracy

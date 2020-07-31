@@ -1,0 +1,6 @@
+"0","roi_importance <- varImp(regularized.model)[[1]] %>% rownames_to_column(var=""ROI"") %>%"
+"0","  dplyr::rename(""Importance""=""Overall"")"
+"0","roi_coef <- as.data.frame(as.matrix(coef(regularized.model$finalModel, regularized.model$bestTune$lambda))) %>%"
+"0","  rownames_to_column(var=""ROI"") %>% dplyr::rename(""Coefficient""=""1"")"
+"0","regularized_roi_results <- left_join(roi_importance, roi_coef)"
+"0","datatable(regularized_roi_results)"

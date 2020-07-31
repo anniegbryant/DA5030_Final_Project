@@ -1,0 +1,22 @@
+"0","regularized_roi_results %>% 
+  left_join(., ggseg.aparc, by=c(""ROI""=""tau_ROI"")) %>%
+  select(Coefficient, ggseg_ROI) %>%
+  rowwise() %>%
+  mutate(Coefficient = (Coefficient-mean_coef)/sd_coef) %>%
+  dplyr::rename(""region""=""ggseg_ROI"") %>%
+  filter(!is.na(region)) %>%
+  ggseg(atlas=""dkextra"", mapping=aes(fill=Coefficient, label=region)) +
+  annotate(""text"", x = 400, y = -40, label = ""left"", family=""calibri"") +
+  annotate(""text"", x = 1300, y = -40, label = ""right"", family=""calibri"") +
+  scale_fill_continuous_divergingx(palette = 'RdBu', mid = 0, rev=T) + 
+  ylab(""Coefficient"") +
+  theme(axis.text=element_blank(),
+        plot.title=element_text(hjust=0.5, family=""calibri""),
+        axis.title.x = element_text(family=""calibri""),
+        axis.title.y=element_text(angle=0, family=""calibri""),
+        legend.position=""none"",
+        text=element_text(family=""calibri""))
+"
+"2","Error in as_ggseg_atlas(geobrain) : 
+  There are missing necessary columns in the data.frame for it to be a ggseg_atlas: '.subid'
+"

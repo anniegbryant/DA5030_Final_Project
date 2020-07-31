@@ -1,0 +1,185 @@
+---
+title: "Data Preparation"
+output: 
+  html_document:
+    css: "my_style.css"
+---
+
+<script src="../hideOutput.js"></script>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=F, message=F)
+```
+
+
+All packages used to for analysis and figures in this page:
+
+```{r}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(plotly)
+library(DT)
+library(ggcorrplot)
+library(psych)
+library(GGally)
+
+# remotes::install_github("LCBC-UiO/ggseg")
+# 
+# If that doesn't work: 
+# 
+# download.file("https://github.com/LCBC-UiO/ggseg/archive/master.zip", "ggseg.zip")
+# unzip("ggseg.zip")
+# devtools::install_local("ggseg-master")
+library(ggseg)
+
+# remotes::install_github("LCBC-UiO/ggseg3d")
+library(ggseg3d)
+
+# remotes::install_github("LCBC-UiO/ggsegExtra")
+library(ggsegExtra)
+```
+
+First, I'll load the partial volume-corrected regional tau-PET data from ADNI. For more info on this dataset, please see [Data Understanding](https://anniegbryant.github.io/DA5030_Final_Project/Pages/2_Data_Understanding.html) and [Acknowledgments](https://anniegbryant.github.io/DA5030_Final_Project/Pages/Acknowledgments.html).
+
+```{r}
+tau.df <- read.csv("../../ADNI_Data/Raw_Data/UCBERKELEYAV1451_PVC_05_12_20.csv", stringsAsFactors = T)
+tau.df$EXAMDATE <- as.Date(as.character(tau.df$EXAMDATE), format="%m/%d/%Y")
+```
+
+
+I'll filter this tau-PET data to contain only subjects with 2+ tau-PET scans, and omit irrelevant columns: 
+```{r}
+tau.df <- tau.df %>%
+  select(-VISCODE, -update_stamp, -HEMIWM_SUVR, -BRAAK12_SUVR,
+         -BRAAK34_SUVR, -BRAAK56_SUVR, -OTHER_SUVR) %>%
+  select(!matches("VOLUME")) %>%
+  group_by(RID) 
+
+colnames(tau.df) <- str_replace_all(colnames(tau.df), "_SUVR", "")
+```
+
+
+As shown in [Data Understanding](https://anniegbryant.github.io/DA5030_Final_Project/Pages/2_Data_Understanding.html#htmlwidget-aee61fc0845b1248fae6), the ROIs are not precisely standardized to the inferior cerebellum gray matter SUVR. I will re-standardize each region's ROI SUVR values here.
+
+
+```{r}
+tau.stand <- tau.df
+for (i in 4:ncol(tau.stand)) {
+  tau.stand[i] <- tau.stand[i]/ tau.df[4]
+}
+rm(tau.df)
+```
+
+Now that regional SUVR is properly standardized, the next step is to select brain regions based on *a priori* knowledge of where and how tau affects the brain in MCI/AD. I am going to stratify the cortical parcellations and subcortical segmentations based on Schöll et al. [(2016)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4779187/) and per UCSF's recommendations for usage of their tau-PET data. Here is the stratification across the Braak stages:
+
+```{r}
+roi.braak <- read.csv("roi_braak_stages.csv") %>% mutate(ROI_Name = tolower(ROI_Name)) %>%
+  mutate(Hemisphere = ifelse(str_detect(ROI_Name, "rh_|right"), "Right", "Left"))
+```
+
+
+I will filter the tau-PET dataset to only include SUVR data for ROIs detailed in the above list, by first reshaping the tau-PET SUVR data from wide to long. Then, I will merge left and right hemisphere ROIs into one bilateral ROI by taking the mean SUVR.
+
+
+```{r}
+tau.stand.roi <- tau.stand %>%
+  pivot_longer(., cols=c(-RID, -VISCODE2, -EXAMDATE), names_to="ROI_Name", values_to="SUVR") %>%
+  mutate(ROI_Name=tolower(ROI_Name)) %>%
+  semi_join(., roi.braak) %>%
+  left_join(., roi.braak) %>%
+  mutate(ROI_Name = str_replace_all(ROI_Name, "right_|left_|ctx_rh_|ctx_lh_", "")) %>%
+  dplyr::group_by(RID, VISCODE2, EXAMDATE, ROI_Name, Braak) %>%
+  dplyr::summarise(SUVR = mean(SUVR, na.rm=T))
+```
+
+
+Now, I will re-shape the tau-PET data back to wide to be compatible with the cognitive status data shape.
+
+```{r}
+tau.stand.roi <- tau.stand.roi %>% 
+  select(-Braak) %>%
+  pivot_wider(id_cols=c(RID, VISCODE2, EXAMDATE), names_from="ROI_Name",
+              values_from="SUVR")
+
+```
+
+
+
+ADNI compiled a merged dataset containing key information from several tables, including subject demographics, selected cognitive assessment scores, and select biomarker data.
+
+
+I am interested in the following features in this dataset:
+
+* `RID`: Participant roster ID, which serves as unique subject identifier 
+* `VISCODE`: Visit code
+* `EXAMDATE`: Date
+* `AGE`: Age at visit
+* `PTGENDER`: Biological sex
+* `CDRSB`: CDR Sum-of-Boxes score at visit
+* `DX`: Current cognitive diagnosis
+
+```{r}
+subj.info <- read.csv("../../ADNI_Data/Raw_Data/ADNIMERGE.csv", stringsAsFactors = T, na.strings="")
+subj.info <- subj.info %>% select(RID, VISCODE, AGE, PTGENDER, CDRSB, DX)
+```
+
+
+I actually can't join the two datasets on the EXAMDATE feature, as these sometimes differ by one or two days depending on when the records were entered. Instead, I will join by the RID subject identifier and VISCODE, a visit code identifier.
+
+Click to see the structure of this merged dataset:
+
+```{r}
+full.df <- inner_join(tau.stand.roi, subj.info, by=c("RID", "VISCODE2"="VISCODE"))  %>%
+  filter(!is.na(CDRSB)) %>%
+  group_by(RID) %>%
+  dplyr::mutate(n_visits = n()) %>%
+  filter(n_visits>1) %>%
+  select(-n_visits)
+
+```
+
+
+
+As it turns out, only 588 of the original 593 tau-PET scans had corresponding cognitive assessments. This leaves 576 unique PET scan datapoints for 243 subjects.  
+
+
+Lastly, before I can perform outlier detection, I need to derive the longitudinal features upon which the prediction models will be built -- namely, annual change in tau-PET SUVR and annual change in CDR-Sum of Boxes score.
+
+```{r}
+annual.changes <- full.df %>%
+  ungroup() %>%
+  select(-AGE, -PTGENDER, -DX, -VISCODE2) %>%
+  pivot_longer(cols=c(-RID, -EXAMDATE), names_to="Metric",
+               values_to="Value") %>%
+  dplyr::group_by(RID, Metric) %>%
+  dplyr::summarise(n_years = as.numeric((EXAMDATE - lag(EXAMDATE, 
+                                                 default=EXAMDATE[1]))/365),
+            change = Value - lag(Value, default=Value[1])) %>%
+  filter(n_years > 0) %>%
+  dplyr::mutate(Annual_Change = change/n_years) %>%
+  select(-n_years, -change) %>%
+  group_by(RID, Metric) %>%
+  dplyr::mutate(interval_num = row_number()) %>%
+  pivot_wider(., id_cols=c(RID, interval_num), names_from=Metric,
+              values_from=Annual_Change)
+datatable(annual.changes[1:5])
+```
+
+
+
+All but one data point have relatively low Cook's distance values, while data point #224 has a relatively large Cook's distance. This suggests large residuals and leverage associated with this datapoint, which could distort model fitting and accuracy. Upon further examination of this instance:  
+
+
+<div class="fold o">
+
+```{r}
+print('hi')
+# as.data.frame(t(annual.changes[224,])) %>%
+#   rownames_to_column(var="Variable") %>%
+#   dplyr::rename("Value" = "V1") %>%
+#   kable(., booktabs=T) %>%
+#   kable_styling(full_width = F)
+```
+
+</div>
