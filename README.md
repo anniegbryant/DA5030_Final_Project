@@ -8,4 +8,4 @@ Here's the Project Directory:
 * [Modeling](Pages/4_Modeling.html)
 * [Model Evaluation](Pages/5_Model_Evaluation.html)
 * [Deployment](Pages/6_Deployment.html) 
-* [Acknowledgments](Pages/Acknowledgments.html)
+* [Acknowledgments](Pages/Acknowledgments.md)
