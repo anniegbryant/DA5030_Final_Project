@@ -1,8 +1,0 @@
-"0","tau.stand.roi <- tau.stand %>%"
-"0","  pivot_longer(., cols=c(-RID, -VISCODE2, -EXAMDATE), names_to=""ROI_Name"", values_to=""SUVR"") %>%"
-"0","  mutate(ROI_Name=tolower(ROI_Name)) %>%"
-"0","  semi_join(., roi.braak) %>%"
-"0","  left_join(., roi.braak) %>%"
-"0","  mutate(ROI_Name = str_replace_all(ROI_Name, ""right_|left_|ctx_rh_|ctx_lh_"", """")) %>%"
-"0","  group_by(RID, VISCODE2, EXAMDATE, ROI_Name, Braak) %>%"
-"0","  summarise(SUVR = mean(SUVR, na.rm=T))"

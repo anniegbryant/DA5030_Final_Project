@@ -1,1 +1,0 @@
-"0","subj.info <- read.csv(""../../ADNI_Data/Raw_Data/ADNIMERGE.csv"", stringsAsFactors = T, na.strings="""")"

@@ -1,6 +1,0 @@
-"0","full.df <- inner_join(tau.stand.roi, subj.info, by=c(""RID"", ""VISCODE2""=""VISCODE""))  %>%"
-"0","  filter(!is.na(CDRSB)) %>%"
-"0","  group_by(RID) %>%"
-"0","  mutate(n_visits = n()) %>%"
-"0","  filter(n_visits>1) %>%"
-"0","  select(-n_visits)"

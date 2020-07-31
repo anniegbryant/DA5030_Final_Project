@@ -1,5 +1,0 @@
-"0","as.data.frame(t(annual.changes[224,])) %>%"
-"0","  rownames_to_column(var=""Variable"") %>%"
-"0","  rename(""Value"" = ""V1"") %>%"
-"0","  kable(., booktabs=T) %>%"
-"0","  kable_styling(full_width = F)"
