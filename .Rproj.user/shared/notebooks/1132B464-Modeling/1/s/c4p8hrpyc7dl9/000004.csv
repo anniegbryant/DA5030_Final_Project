@@ -1,0 +1,7 @@
+"0",""
+"0","# Calculate RMSE and R-squared for test data"
+"0","rf.train.performance <- data.frame(RMSE = RMSE(train.pred.cdr, train.real.cdr),"
+"0","                                   R2 = R2(train.pred.cdr, train.real.cdr),"
+"0","                                   Model=""Random Forest"","
+"0","                                   Sample=""Training data"")"
+"0","rf.train.performance"

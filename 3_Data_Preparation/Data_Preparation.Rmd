@@ -249,10 +249,10 @@ Lastly, before I can perform outlier detection, I need to derive the longitudina
 ```{r}
 annual.changes <- full.df %>%
   ungroup() %>%
-  select(-AGE, -PTGENDER, -DX, -VISCODE2) %>%
-  pivot_longer(cols=c(-RID, -EXAMDATE), names_to="Metric",
+  select(-DX, -VISCODE2) %>%
+  pivot_longer(cols=c(-RID, -EXAMDATE, -PTGENDER, -AGE), names_to="Metric",
                values_to="Value") %>%
-  dplyr::group_by(RID, Metric) %>%
+  dplyr::group_by(RID, PTGENDER, AGE, Metric) %>%
   dplyr::summarise(n_years = as.numeric((EXAMDATE - lag(EXAMDATE, 
                                                         default=EXAMDATE[1]))/365),
                    change = Value - lag(Value, default=Value[1])) %>%
@@ -261,8 +261,10 @@ annual.changes <- full.df %>%
   select(-n_years, -change) %>%
   group_by(RID, Metric) %>%
   dplyr::mutate(interval_num = row_number()) %>%
-  pivot_wider(., id_cols=c(RID, interval_num), names_from=Metric,
-              values_from=Annual_Change)
+  pivot_wider(., id_cols=c(RID, AGE, PTGENDER, interval_num), names_from=Metric,
+              values_from=Annual_Change) %>%
+  rename("Age_Baseline" = "AGE",
+         "Sex" = "PTGENDER")
 datatable(annual.changes[1:5])
 ```
 </div>
@@ -323,10 +325,10 @@ I can now finish some aspects of data exploration that depended upon refining th
 annual.changes.tau <- annual.changes %>%
   select(-CDRSB) %>%
   ungroup() %>%
-  pivot_longer(cols=c(-RID, -interval_num), names_to="ROI",
+  pivot_longer(cols=c(-RID, -interval_num, -Age_Baseline, -Sex), names_to="ROI",
                values_to="deltaSUVR")
 
-multi.hist(annual.changes %>% ungroup() %>% select(-RID, -interval_num, -CDRSB),
+multi.hist(annual.changes %>% ungroup() %>% select(-RID, -interval_num, -CDRSB, -Age_Baseline, -Sex),
            dcol="red")
 ```
 </div>
@@ -340,7 +342,7 @@ Next, I will visualize the correlation in annual tau change between each of the 
 <div class="fold s">
 
 ```{r}
-annual.roi <- annual.changes %>% ungroup() %>% select(-RID, -interval_num, -CDRSB)
+annual.roi <- annual.changes %>% ungroup() %>% select(-RID, -interval_num, -CDRSB, -Age_Baseline, -Sex)
 roi.cor <- cor(annual.roi)
 p.mat <- cor_pmat(annual.roi)
 
@@ -445,7 +447,7 @@ This generally high correlation in annual tau-PET SUVR changes between cortical 
 <div class="fold s">
 
 ```{r}
-pca.df <- as.matrix(annual.changes %>% ungroup() %>% select(-RID, -CDRSB, -interval_num))
+pca.df <- as.matrix(annual.changes %>% ungroup() %>% select(-RID, -CDRSB, -interval_num, -Age_Baseline, -Sex))
 res.pca <- prcomp(pca.df, center=T, scale.=F)
 # The variable info can be extracted as follows:
 var <- get_pca_var(res.pca)
@@ -572,15 +574,29 @@ post.pca <- as.data.frame(res.pca$x[,1:5]) %>%
   cbind(., RID=annual.changes$RID) %>%
   cbind(., interval_num=annual.changes$interval_num) %>%
   cbind(., CDRSB=annual.changes$CDRSB) %>%
-  select(RID, interval_num, CDRSB, PC1:PC5)
+  cbind(., Age_Baseline=annual.changes$Age_Baseline) %>%
+  cbind(., Sex=annual.changes$Sex) %>%
+  select(RID, interval_num, Age_Baseline, Sex, CDRSB, PC1:PC5)
 
-datatable(post.pca %>% mutate_if(is.numeric, function(x) round(x,5)))
+datatable(post.pca %>% mutate_if(is.numeric, function(x) round(x,5)) %>% select(-Age_Baseline, -Sex))
 ```
 </div>
+
+The final step is to convert sex into a dummy variable for modeling:
+```{r}
+annual.changes$Sex_Male <- ifelse(annual.changes$Sex=="Male", 1, 0)
+post.pca$Sex_Male <- ifelse(post.pca$Sex=="Male", 1, 0)
+
+annual.changes <- annual.changes %>% select(-Sex)
+post.pca <- post.pca %>% select(-Sex)
+```
+
+
+
 
 
 I'll save these prepared datasets to an .RData file for modeling:
 ```{r}
-save(annual.changes, subj.info, post.pca, file="../Prepared_Data.RData")
+save(annual.changes, post.pca, file="../Prepared_Data.RData")
 ```
 

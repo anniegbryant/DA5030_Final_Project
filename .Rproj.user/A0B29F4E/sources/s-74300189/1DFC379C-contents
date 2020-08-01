@@ -1,0 +1,999 @@
+---
+title: "Modeling -- PCA-Transformed Data"
+output: 
+  html_document:
+    css: "../my_style.css"
+---
+
+<script src="../hideOutput.js"></script>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=F, message=F)
+```
+
+
+All packages used to for analysis and figures in this page:
+
+<div class="fold s">
+```{r}
+# General data wrangling
+library(tidyverse)
+library(DT)
+library(readxl)
+
+# Visualization
+library(plotly)
+library(colorRamps)
+library(RColorBrewer)
+library(colorspace)
+
+# Modeling
+library(glmnet)
+library(caret)
+library(ranger)
+
+# Ensemble building
+library(caretEnsemble)
+```
+</div>
+
+
+Load in the prepared data:
+
+```{r}
+load("../Prepared_Data.RData")
+```
+
+
+I'll split the data into 75% training and 25% test. I'll use the same rows for the original tau-PET ROI data as well as the PCA-transformed data for comparison.
+
+```{r}
+# Set seed for consistency in random sampling for 10-foldcross-validation
+set.seed(127)
+train.index <- sample(nrow(annual.changes), nrow(annual.changes)*0.75, replace=F)
+
+# Remove unneccessary identifier info from datasets for modeling
+original <- annual.changes %>% ungroup() %>% select(-RID, -interval_num)
+pca <- post.pca %>% ungroup() %>% select(-RID, -interval_num)
+
+# Pre-processing will be applied in model training with caret
+
+# Subset training + test data for original (ROI) data + PC score data
+original.train <- original[train.index, ]
+original.test <- original[-train.index, ]
+pca.train <- pca[train.index, ]
+pca.test <- pca[-train.index, ]
+```
+
+
+## Individual models 
+
+### Elastic Net Regression
+
+The first model I will build is an elastic net regression model, implemented using `glmnet` and `caret`. I like this model as it is very interpretable in terms of variable coefficients, and the regularization parameter refines the variables to only those most important in predicting the outcome variable. I will use ten-fold cross-validation with `caret` to select the optimal value of `alpha` and `lambda`. The `alpha` parameter ranges from 0 to 1 and dictates the type of regularization to use, with a value of 0 indicating L2 regularization (ridge regression) and a value of 1 indicating L1 regularization (lasso regression). The `lambda` parameter dictates the magnitude of the penalty applied to coefficients kept in the model. 
+
+<div class="fold s">
+```{r}
+# Set seed for consistency in random sampling for cross-validation
+set.seed(127)
+
+# Use 10-fold cross-validation
+myControl <- trainControl(method = "cv", number = 10)
+
+# Train glmnet with caret to try three different alpha values
+# and 100 different values for lambda ranging from 0.0001 to 1
+regularized.model <- train(CDRSB~., data=original.train, 
+                           tuneGrid = expand.grid(
+                             alpha = seq(0,1,.2),
+                             lambda = seq(0.0001, 1, length = 100)),
+                           method = "glmnet",
+                           preProcess = c("center", "scale"),
+                           trControl = myControl
+)
+```
+</div>
+
+Click to view the (lengthy) regularized.model cross-validation results:
+
+<div class="fold o">
+```{r}
+regularized.model
+```
+</div>
+
+
+
+<div class="fold s">
+```{r, results='hide'}
+reg.alpha <- regularized.model$results$alpha
+reg.rmse <- regularized.model$results$RMSE
+reg.lambda <- regularized.model$results$lambda
+
+p.enet.cv <- data.frame(alpha=reg.alpha, RMSE=reg.rmse, lambda=reg.lambda) %>%
+  mutate(alpha=as.character(alpha)) %>%
+  ggplot(data=., mapping=aes(x=lambda, y=RMSE, color=alpha)) +
+  geom_point() +
+  geom_line(aes(group=alpha)) +
+  theme_minimal() +
+  ggtitle("Elastic Net Regression Cross-Validation Results") +
+  theme(plot.title=element_text(hjust=0.5))
+ggplotly(p.enet.cv)
+
+rm(reg.alpha, reg.rmse, reg.lambda, p.enet.cv, train.index)
+```
+</div>
+
+
+What are the optimal values for alpha and lambda obtained via cross-validation?
+```{r}
+regularized.model$bestTune
+```
+
+
+The 10-fold cross-validation yields an optimal alpha of 0, which indicates the model is full ridge regression (i.e. no lasso). Ridge regression employs L2 regularization, in which the penalty term includes the squared value of each coefficient. I will delve more into the relative importance of each variable and their corresponding coefficient in [model evaluation](https://anniegbryant.github.io/DA5030_Final_Project/Pages/5_Model_Evaluation.html). 
+
+First, I'll evaluate baseline accuracy within the training data:
+
+
+<div class="fold s">
+
+```{r, results='hold'}
+# Predict change in CDR Sum of Boxes value based on training data upon which ridge model was trained
+train.pred.cdr <- predict(regularized.model, newdata=original.train)
+
+# Compare with the actual change in CDR Sum of Boxes
+train.real.cdr <- original.train$CDRSB
+
+# Combine actual CDR vs. predicted CDR into a dataframe
+ridge.results.train <- data.frame(Predicted=train.pred.cdr, Actual=train.real.cdr)
+
+# Calculate RMSE and R-squared for training data
+ridge.train.performance <- data.frame(RMSE = RMSE(train.pred.cdr, train.real.cdr),
+                                      R2 = R2(train.pred.cdr, train.real.cdr),
+                                      Model="Ridge Regression",
+                                      Sample="Training data")
+ridge.train.performance
+
+rm(train.pred.cdr, train.real.cdr)
+```
+</div>
+
+The $R^2$ value of **0.3945989** within the training data is pretty low, and does not bode particularly well for model performance out-of-sample. I'll calculate the same metrics for the out-of-sample test data predictions:
+
+<div class="fold s">
+```{r, results='hold'}
+test.pred.cdr <- predict(regularized.model, newdata=original.test)
+test.real.cdr <- original.test$CDRSB
+ridge.results.test <- data.frame(Predicted=test.pred.cdr, Actual=test.real.cdr)
+
+# Calculate RMSE and R-squared for test data
+ridge.test.performance <- data.frame(RMSE = RMSE(test.pred.cdr, test.real.cdr),
+                                     R2 = R2(test.pred.cdr, test.real.cdr),
+                                     Model="Ridge Regression",
+                                     Sample="Test data")
+ridge.test.performance
+
+rm(test.pred.cdr, test.real.cdr)
+```
+</div>
+
+The $R^2$ value of **0.0446316** is very poor, suggesting this model does not hold outside of the training data. Interestingly, the RMSE is only marginally larger than that of the training data (0.9011223 vs. 0.910047). The predictions in training vs. test data can be visualized with scatter plots:
+
+
+<div class="fold s">
+```{r, results='hold'}
+# Construct ggplot2-scatter plot
+p.ridge.train <- ridge.results.train %>%
+  ggplot(data=., mapping=aes(x=Actual, y=Predicted)) +
+  theme_minimal() +
+  geom_point(alpha=0.5, size=3, color="skyblue3", fill="skyblue3") +
+  # Add regression line of best fit
+  geom_smooth(stat="smooth", se=F, method="lm", color="black") +
+  ylab("Training Predicted CDR-SoB Change") +
+  xlab("Training Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+p.ridge.train <- ggplotly(p.ridge.train)
+
+p.ridge.test <- ridge.results.test %>%
+  ggplot(data=., mapping=aes(x=Actual, y=Predicted)) +
+  theme_minimal() +
+  geom_point(alpha=0.5, size=3, color="skyblue3", fill="skyblue3") +
+  geom_smooth(stat="smooth", se=F, method="lm", color="black") +
+  ggtitle("Ridge Regression CDR Sum of Boxes Predictions in Training vs. Test Data") +
+  ylab("Test Predicted CDR-SoB Change") +
+  xlab("Test Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+p.ridge.test <- ggplotly(p.ridge.test)
+
+subplot(p.ridge.train, p.ridge.test, shareX=F,shareY=F,titleX=T,titleY=T, margin = 0.05) %>%
+  layout(autosize = F, width = 800, height = 400)
+rm(p.ridge.train, p.ridge.test, ridge.results.test, ridge.results.train)
+```
+</div>
+
+The predicted change in CDR Sum of Boxes in the test data don't align well with the actual values.
+
+### k-Nearest Neighbors (kNN)
+
+<div class="fold s">
+```{r}
+set.seed(127)
+# Train kNN model using the same train-control parameters as with the elastic net
+# Namely, 10-fold cross validation with center+scale predictor variable preprocessing
+# tuneLength=20 --> try 20 different k-values
+knn.fit <- train(CDRSB ~ ., data=original.train, method="knn", 
+                 trControl=myControl, tuneLength=20, preProcces=c("center", "scale"))
+knn.fit
+```
+These $R^2$ values for the training data are not particularly promising, and the RMSE values are higher than those with the ridge regression. Here's the RMSE distribution as a function of `k` nearest neighbors:
+</div>
+
+
+<div class="fold s">
+```{r}
+knn.k <- knn.fit$results$k
+knn.rmse <- knn.fit$results$RMSE
+knn.r2 <- knn.fit$results$Rsquared
+
+p.knn.rmse <- data.frame(k=knn.k, RMSE=knn.rmse) %>%
+  ggplot(data=., mapping=aes(x=k, y=RMSE)) +
+  geom_point(color="skyblue4") +
+  geom_line(color="skyblue4") +
+  ylab("RMSE") +
+  theme_minimal() +
+  ggtitle("Cross-Validated kNN") +
+  theme(plot.title=element_text(hjust=0.5))
+
+p.knn.r2 <- data.frame(k=knn.k, R2=knn.r2) %>%
+  ggplot(data=., mapping=aes(x=k, y=R2)) +
+  geom_point(color="darkgreen") +
+  geom_line(color="darkgreen") +
+  ylab("R2") +
+  xlab("k") +
+  theme_minimal() +
+  ggtitle("Cross-Validated kNN") +
+  theme(plot.title=element_text(hjust=0.5))
+
+p.knn.rmse <- ggplotly(p.knn.rmse)
+p.knn.r2 <- ggplotly(p.knn.r2)
+
+subplot(p.knn.rmse, p.knn.r2, nrows = 2, titleY=T, titleX=T)
+```
+</div>
+
+
+The optimal k based on cross-validated RMSE is 27. I'll further explore the performance of this kNN model within the training data:
+
+<div class="fold s">
+```{r, results='hold'}
+# Predict change in CDR Sum of Boxes value based on training data upon which kNN model was trained
+train.pred.cdr <- predict(knn.fit, newdata=original.train)
+
+# Compare with the actual change in CDR Sum of Boxes
+train.real.cdr <- original.train$CDRSB
+
+# Combine actual CDR vs. predicted CDR into a dataframe
+knn.results.train <- data.frame(Predicted=train.pred.cdr, Actual=train.real.cdr)
+
+# Calculate RMSE and R-squared for training data
+data.frame(RMSE = RMSE(train.pred.cdr, train.real.cdr),
+           R2 = R2(train.pred.cdr, train.real.cdr))
+
+knn.train.performance <- data.frame(RMSE = RMSE(train.pred.cdr, train.real.cdr),
+                                    R2 = R2(train.pred.cdr, train.real.cdr),
+                                    Model="kNN",
+                                    Sample="Training data")
+knn.train.performance
+
+rm(train.pred.cdr, train.real.cdr)
+```
+</div>
+
+
+This suggests a weak relationship between the predicted vs. actual CDR Sum of Boxes annual change within the training data. This is unlikely to improve out-of-sample, but it is worth checking:
+
+
+<div class="fold s">
+```{r, results='hold'}
+test.pred.cdr <- predict(knn.fit, newdata=original.test)
+test.real.cdr <- original.test$CDRSB
+knn.results.test <- data.frame(Predicted=test.pred.cdr, Actual=test.real.cdr)
+
+# Calculate RMSE and R-squared for test data
+knn.test.performance <- data.frame(RMSE = RMSE(test.pred.cdr, test.real.cdr),
+                                   R2 = R2(test.pred.cdr, test.real.cdr),
+                                   Model="kNN",
+                                   Sample="Test data")
+knn.test.performance
+
+rm(test.pred.cdr, test.real.cdr)
+```
+</div>
+
+
+As expected based on the training data results, this model performs very poorly out-of-sample. As with ridge regression, I will visualize the scatter plot distribution:  
+
+<div class="fold s">
+```{r, results='hold'}
+# Construct ggplot2-scatter plot
+p.knn.train <- knn.results.train %>%
+  ggplot(data=., mapping=aes(x=Actual, y=Predicted)) +
+  theme_minimal() +
+  geom_point(alpha=0.5, size=3, color="skyblue3", fill="skyblue3") +
+  # Add regression line of best fit
+  geom_smooth(stat="smooth", se=F, method="lm", color="black") +
+  ylab("Training Predicted CDR-SoB Change") +
+  xlab("Training Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+p.knn.train <- ggplotly(p.knn.train)
+
+p.knn.test <- knn.results.test %>%
+  ggplot(data=., mapping=aes(x=Actual, y=Predicted)) +
+  theme_minimal() +
+  geom_point(alpha=0.5, size=3, color="skyblue3", fill="skyblue3") +
+  geom_smooth(stat="smooth", se=F, method="lm", color="black") +
+  ggtitle("kNN Regression CDR Sum of Boxes Predictions in Training vs. Test Data") +
+  ylab("Test Predicted CDR-SoB Change") +
+  xlab("Test Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+p.knn.test <- ggplotly(p.knn.test)
+
+subplot(p.knn.train, p.knn.test, shareX=F,shareY=F,titleX=T,titleY=T, margin = 0.05) %>%
+  layout(autosize = F, width = 800, height = 400)
+rm(p.knn.train, p.knn.test, knn.results.test, knn.results.train, p.knn.r2, p.knn.rmse)
+```
+
+</div>
+
+The kNN-predicted CDR Sum of Boxes values are generally magnitude(s) smaller than the actual CDR Sum of Boxes change values, which is odd. 
+
+### Neural net
+
+
+<div class="fold s">
+
+```{r}
+set.seed(127)
+library(nnet)
+# Train neural network model using the same train-control parameters as with the elastic net
+# Namely, 10-fold cross validation
+# Optimize based on minimizing RMSE
+invisible(capture.output(nnet.fit <- train(CDRSB ~ ., 
+                                           data=original.train, 
+                                           method="nnet", 
+                                           metric="RMSE",
+                                           preProcess=c("center", "scale"),
+                                           linout=TRUE, trace = FALSE,
+                                           trControl=myControl,
+                                           tuneGrid = expand.grid(size=c(1, 6, 12, 18, 24, 30, 33),
+                                                                  decay = seq(0, 1, by=0.2)))))
+```
+
+</div>
+
+The best neural network tuning parameters identified via 10-fold cross-validation are:
+```{r}
+nnet.fit$bestTune
+```
+
+Click to view the full results of cross-validation for neural network fitting:
+
+<div class="fold o">
+```{r}
+nnet.fit
+```
+</div>
+
+
+The final model is described as follows:
+```{r}
+nnet.fit$finalModel
+```
+
+The optimal neural network model includes a hidden layer comprised of just one neuron, with a weight decay of 0.8. First, I will check performance within the training data:
+
+<div class="fold s">
+```{r, results='hold'}
+n.neurons <- nnet.fit$results$size
+nnet.rmse <- nnet.fit$results$RMSE
+nnet.r2 <- nnet.fit$results$Rsquared
+nnet.weight <- nnet.fit$results$decay
+
+p.nnet.rmse <- data.frame(size=n.neurons, RMSE=nnet.rmse, decay=nnet.weight) %>%
+  mutate(decay=as.character(decay)) %>%
+  ggplot(data=., mapping=aes(x=size, y=RMSE, color=decay)) +
+  geom_point(show.legend = F) +
+  geom_line(show.legend = F) +
+  ylab("RMSE") +
+  xlab("Number of neurons in hidden layer") +
+  labs(color="Weight Decay") +
+  theme_minimal() +
+  ggtitle("Neural Network Cross-Validated RMSE") +
+  theme(plot.title=element_text(hjust=0.5),
+        axis.text.x=element_blank())
+
+p.nnet.r2 <- data.frame(size=n.neurons, r2=nnet.r2, decay=nnet.weight) %>%
+  mutate(decay=as.character(decay)) %>%
+  ggplot(data=., mapping=aes(x=size, y=r2)) +
+  geom_point(aes(color=decay), show.legend=F) +
+  geom_line(aes(color=decay)) +
+  ylab("R2") +
+  xlab("Number of neurons in hidden layer") +
+  labs(color="Weight Decay") +
+  ggtitle("Neural Network Cross-Validated R2") +
+  theme_minimal() +
+  theme(plot.title=element_text(hjust=0.5),
+        axis.text.x=element_blank())
+
+
+ggplotly(p.nnet.rmse)
+ggplotly(p.nnet.r2)
+
+rm(n.neurons, nnet.rmse, nnet.r2, nnet.weight, p.nnet.rmse, p.nnet.r2, knn.k, knn.r2, knn.rmse)
+```
+
+
+</div>
+
+
+
+
+
+Here's a graphical visualization of the `caret`-trained neural network:
+```{r}
+#import the function from Github
+library(NeuralNetTools)
+par(mar = numeric(4))
+plotnet(nnet.fit, cex_val=0.8, pad_x=0.6, pos_col="firebrick3", neg_col="dodgerblue4",
+        circle_col="lightslategray", bord_col="lightslategray", alpha_val=0.4)
+```
+
+
+Next, I'll check model performance in the training dataset:
+
+<div class="fold s">
+```{r, results='hold'}
+# Predict change in CDR Sum of Boxes value based on training data upon which neural network model was trained
+train.pred.cdr <- predict(nnet.fit, newdata=original.train, type="raw")
+
+# Compare with the actual change in CDR Sum of Boxes
+train.real.cdr <- original.train$CDRSB
+
+# Combine actual CDR vs. predicted CDR into a dataframe
+nnet.results.train <- data.frame(Predicted=train.pred.cdr, Actual=train.real.cdr)
+
+# Calculate RMSE and R-squared for training data
+nnet.train.performance <- data.frame(RMSE = RMSE(train.pred.cdr, train.real.cdr),
+                                     R2 = R2(train.pred.cdr, train.real.cdr),
+                                     Model="Neural Network",
+                                     Sample="Training data")
+nnet.train.performance
+
+rm(train.pred.cdr, train.real.cdr)
+```
+</div>
+
+
+This $R^2$ value of **0.593989** is the highest obtained from any of the models yet in the training data. This can be compared with out-of-sample performance with the test data -- but first, the test data is also min-max normalized:
+
+
+<div class="fold s">
+```{r, results='hold'}
+test.pred.cdr <- predict(nnet.fit, newdata=original.test)
+test.real.cdr <- original.test$CDRSB
+nnet.results.test <- data.frame(Predicted=test.pred.cdr, Actual=test.real.cdr)
+
+# Calculate RMSE and R-squared for test data
+nnet.test.performance <- data.frame(RMSE = RMSE(test.pred.cdr, test.real.cdr),
+                                    R2 = R2(test.pred.cdr, test.real.cdr),
+                                    Model="Neural Network",
+                                    Sample="Test data")
+nnet.test.performance
+
+rm(test.pred.cdr, test.real.cdr)
+```
+</div>
+
+This out-of-sample $R^2$ is the worst of the three models, at **0.05826591**. The training vs. testing data performance can be visualized with a scatter plot:
+
+<div class="fold s">
+```{r, results='hold'}
+# Construct ggplot2-scatter plot
+p.nnet.train <- nnet.results.train %>%
+  ggplot(data=., mapping=aes(x=Actual, y=Predicted)) +
+  theme_minimal() +
+  geom_point(alpha=0.5, size=3, color="skyblue3", fill="skyblue3") +
+  # Add regression line of best fit
+  geom_smooth(stat="smooth", se=F, method="lm", color="black") +
+  ylab("Training Predicted CDR-SoB Change") +
+  xlab("Training Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+p.nnet.train <- ggplotly(p.nnet.train)
+
+p.nnet.test <- nnet.results.test %>%
+  ggplot(data=., mapping=aes(x=Actual, y=Predicted)) +
+  theme_minimal() +
+  geom_point(alpha=0.5, size=3, color="skyblue3", fill="skyblue3") +
+  geom_smooth(stat="smooth", se=F, method="lm", color="black") +
+  ggtitle("Neural Network CDR Sum of Boxes Predictions in Training vs. Test Data") +
+  ylab("Test Predicted CDR-SoB Change") +
+  xlab("Test Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+p.nnet.test <- ggplotly(p.nnet.test)
+
+subplot(p.nnet.train, p.nnet.test, shareX=F,shareY=F,titleX=T,titleY=T, margin = 0.05) %>%
+  layout(autosize = F, width = 800, height = 400)
+rm(p.nnet.train, p.nnet.test, nnet.results.test, nnet.results.train)
+```
+
+### Random Forest  
+
+The last individual model I will utilize is a random forest regression model. This is an ensemble model itself, combining individual regression trees with random subsets of features and instances. 
+
+```{r}
+# Set seed for consistency in random sampling for cross-validation
+set.seed(127)
+
+# Use 10-fold cross-validation
+myControl <- trainControl(method = "cv", number = 10)
+
+# tuneLength = mtry = number of features sampled (without replacement) at each decision node
+rf.model <- train(CDRSB ~ ., data=original.train,
+                  method="ranger", tuneLength=15, 
+                  preProc=c("center", "scale"),
+                  num.trees=500, importance="permutation")
+```
+
+Here are the final parameters from the best-fit random forest model:
+```{r}
+rf.model$bestTune
+```
+
+
+
+<div class="fold s">
+```{r, results='hold'}
+splitrule <- rf.model$results$splitrule
+numpred <- rf.model$results$mtry
+rf.rmse <- rf.model$results$RMSE
+rf.r2 <- rf.model$results$Rsquared
+
+p.rf.rmse <- data.frame(n=numpred, RMSE=rf.rmse, splitrule=splitrule) %>%
+  ggplot(data=., mapping=aes(x=n, y=RMSE, color=splitrule)) +
+  geom_point() +
+  geom_line() +
+  ylab("RMSE") +
+  xlab("Number of Predictors") +
+  ggtitle("Random Forest Cross-Validated RMSE") +
+  theme_minimal() +
+  theme(plot.title=element_text(hjust=0.5),
+        axis.text.x=element_blank())
+
+p.rf.r2 <- data.frame(n=numpred, R2=rf.r2, splitrule=splitrule) %>%
+  ggplot(data=., mapping=aes(x=n, y=R2, color=splitrule)) +
+  geom_point() +
+  geom_line() +
+  ylab("R2") +
+  xlab("Number of Predictors") +
+  theme_minimal() +
+  ggtitle("Random Forest Cross-Validated R2") +
+  theme(plot.title=element_text(hjust=0.5))
+
+ggplotly(p.rf.rmse)
+ggplotly(p.rf.r2)
+
+rm(splitrule, numpred, rf.rmse, rf.r2, p.rf.rmse, p.rf.r2)
+```
+</div>
+
+
+I'll check model performance in the training dataset:
+
+<div class="fold s">
+```{r, results='hold'}
+# Predict change in CDR Sum of Boxes value based on training data upon which random forest model was trained
+train.pred.cdr <- predict(rf.model, newdata=original.train)
+
+# Compare with the actual change in CDR Sum of Boxes
+train.real.cdr <- original.train$CDRSB
+
+# Combine actual CDR vs. predicted CDR into a dataframe
+rf.results.train <- data.frame(Predicted=train.pred.cdr, Actual=train.real.cdr)
+
+# Calculate RMSE and R-squared for training data
+data.frame(RMSE = RMSE(train.pred.cdr, train.real.cdr),
+           R2 = R2(train.pred.cdr, train.real.cdr))
+
+# Calculate RMSE and R-squared for test data
+rf.train.performance <- data.frame(RMSE = RMSE(train.pred.cdr, train.real.cdr),
+                                   R2 = R2(train.pred.cdr, train.real.cdr),
+                                   Model="Random Forest",
+                                   Sample="Training data")
+rf.train.performance
+
+rm(train.pred.cdr, train.real.cdr)
+```
+</div>
+
+
+The training data $R^2$ value of **0.9329329** is very high, though this is surprising given the very low (<0.1) cross-validated $R^2$ values from the training data. This may indicate overfitting, which will be clarified by examining the test data:
+
+<div class="fold s">
+```{r, results='hold'}
+test.pred.cdr <- predict(rf.model, newdata=original.test)
+test.real.cdr <- original.test$CDRSB
+rf.results.test <- data.frame(Predicted=test.pred.cdr, Actual=test.real.cdr)
+
+# Calculate RMSE and R-squared for test data
+rf.test.performance <- data.frame(RMSE = RMSE(test.pred.cdr, test.real.cdr),
+                                  R2 = R2(test.pred.cdr, test.real.cdr),
+                                  Model="Random Forest",
+                                  Sample="Test data")
+rf.test.performance
+
+rm(test.pred.cdr, test.real.cdr)
+```
+</div>
+
+Indeed, the out-of-sample $R^2$ is much lower, at **0.1614958**. This is the highest out-of-sample $R^2$ value achieved by any model, and the RMSE is also the lowest, for out-of-sample data.
+
+The training vs. testing data performance can be visualized with a scatter plot:
+
+<div class="fold s">
+```{r, results='hold'}
+# Construct ggplot2-scatter plot
+p.rf.train <- rf.results.train %>%
+  ggplot(data=., mapping=aes(x=Actual, y=Predicted)) +
+  theme_minimal() +
+  geom_point(alpha=0.5, size=3, color="skyblue3", fill="skyblue3") +
+  # Add regression line of best fit
+  geom_smooth(stat="smooth", se=F, method="lm", color="black") +
+  ggtitle("Random Forest CDR Sum of Boxes Predictions in Training vs. Test Data") +
+  ylab("Training Predicted CDR-SoB Change") +
+  xlab("Training Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+p.rf.train <- ggplotly(p.rf.train)
+
+p.rf.test <- rf.results.test %>%
+  ggplot(data=., mapping=aes(x=Actual, y=Predicted)) +
+  theme_minimal() +
+  geom_point(alpha=0.5, size=3, color="skyblue3", fill="skyblue3") +
+  # Add regression line of best fit
+  geom_smooth(stat="smooth", se=F, method="lm", color="black") +
+  ggtitle("Random Forest CDR Sum of Boxes Predictions in Training vs. Test Data") +
+  ylab("Test Predicted CDR-SoB Change") +
+  xlab("Test Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+p.rf.test <- ggplotly(p.rf.test)
+
+subplot(p.rf.train, p.rf.test, shareX=F,shareY=F,titleX=T,titleY=T, margin = 0.05) %>%
+  layout(autosize = F, width = 800, height = 400)
+rm(p.rf.train, p.rf.test)
+```
+
+
+Compare the RMSE and R2 across these four models individually:
+
+```{r}
+model.comparison <- do.call(plyr::rbind.fill, list(knn.train.performance, knn.test.performance,
+                                                   nnet.train.performance, nnet.test.performance,
+                                                   rf.train.performance, rf.test.performance,
+                                                   ridge.train.performance, ridge.test.performance))
+
+rm(knn.train.performance, knn.test.performance, nnet.train.performance, nnet.test.performance,
+   rf.train.performance, rf.test.performance, ridge.train.performance, ridge.test.performance)
+
+
+model.comparison %>%
+  pivot_longer(cols=c(RMSE, R2), names_to="Metric", values_to="Value") %>%
+  rowwise() %>%
+  mutate(Sample = str_replace(Sample, " data", "")) %>%
+  mutate(Metric = paste(Sample, Metric, sep=" ")) %>%
+  select(-Sample) %>%
+  pivot_wider(id_cols="Model", names_from=Metric, values_from=Value) %>%
+  mutate_if(is.numeric, function(x) round(x,5)) %>%
+  datatable()
+```
+
+blah blah blah write something about their similarities and diffs
+
+
+### IT'S ENSEMBLE TIME BABYYYYYYYYYYYYYYYYYYYY
+
+helpful source: https://rpubs.com/zxs107020/370699
+https://towardsdatascience.com/a-comprehensive-machine-learning-workflow-with-multiple-modelling-using-caret-and-caretensemble-in-fcbf6d80b5f2  
+
+Now that I've compared each model individually, it's time to bring them all together in a stacked ensemble model. [something about each model's bias/variance tradeoff?] I will be using the `caretEnsemble` package for this, which includes several functions designed to construct and evaluate model ensembles.
+
+The first step is to create a `caretList` of the four models I will use:  
+
+* Elastic net (`glmnet`) 
+* k-nearest neighbors (`knn`) 
+* Neural network (`nnet`) 
+* Random forest (`rf`) 
+
+I'm creating a new `trainControl` option to include parallel processing with the 10-fold cross-validation. I will use RMSE as the `metric` to which model parameters are tuned. I will apply center and scaling via `preProcess`, which will automatically preprocess any data passed into the ensemble, both training and test data.
+
+
+<div class="fold s">
+
+```{r}
+# Set seed for consistency
+set.seed(127)
+
+# List of individual models to include in the ensemble
+# Adding nnet later to specify that linout=T so values aren't constrained to [0,1] logistic regression range
+model.list <- c("rf", "glmnet", "knn")
+
+# New trainControl for 10-fold CV and parallel processing
+ensemble.control <- trainControl(method="cv", number=10, allowParallel=T)
+
+# Create the ensemble using caretList
+invisible(capture.output(ensemble.models <- caretList(CDRSB ~ ., data=original.train, trControl=ensemble.control, 
+                                                      metric="RMSE", methodList=model.list, preProcess = c("center","scale"),
+                                                      tuneList=list(caretModelSpec(method="nnet", linout=T, trace=F)))))
+```
+
+</div>
+
+The final chosen parameters for each model can be viewed:
+
+<div class="fold s">
+
+```{r, results='hold'}
+ensemble.models$glmnet
+cat("\n\n")
+ensemble.models$knn
+cat("\n\n")
+ensemble.models$nnet
+cat("\n\n")
+ensemble.models$rf
+cat("\n\n")
+```
+</div>
+
+The individual model performances can be resampled and aggregated using the `resamples` function:
+
+<div class="fold s">
+
+```{r}
+# Resample the performance of this ensemble and report summary metrics for MAE, RMSE, and R2
+set.seed(127)
+ensemble.results <- resamples(ensemble.models)
+summary(ensemble.results)
+```
+
+</div>
+
+It's also useful to look at the regression correlation between these component models:
+
+<div class="fold s">
+
+```{r, results='hold'}
+cat("\nRMSE Correlation\n")
+modelCor(ensemble.results, metric="RMSE")
+cat("\n\nR2 Correlation\n")
+modelCor(ensemble.results, metric="Rsquared")
+```
+
+</div>
+
+Finally, before moving on to stacked ensemble predictions, I'll visualize this relative performance across the four models using the `dotplot` function:
+```{r}
+library(grid)
+library(gridExtra)
+library(ggplotify)
+p.rmse <- as.ggplot(dotplot(ensemble.results, metric="RMSE"))
+p.r2 <- as.ggplot(dotplot(ensemble.results, metric="Rsquared")) 
+
+grid.arrange(p.rmse, p.r2, ncol=2)
+```
+
+
+Ideally, this ensemble would be comprised of models that show minimal correlation with each other and that offer larger R-squared values than can be seen here. Despite the high RMSE correlation and relatively weak performance across these four models, I'll move forward to see if ensembling strengthens the overall predictions for the change in CDR-Sum of Boxes over time.
+
+
+Starting with the basic `caretEnsemble` function, which employs a generalized linear model to combine the component models:
+```{r}
+set.seed(127)
+ensemble.control <- trainControl(method="repeatedcv", number=10, allowParallel = T)
+
+stacked.ensemble.glm <- caretEnsemble(ensemble.models, metric="RMSE", trControl=ensemble.control)
+
+summary(stacked.ensemble.glm)
+```
+
+Here's a visual of this ensemble model:
+```{r}
+plot(stacked.ensemble.glm)
+```
+
+
+Stacked ensembles can also be constructed using `caretStack`, which applies user-defined linear combinations of each constituent model. I'll try one using a random forest combination of models and one using an elastic net combination of models.
+
+
+```{r}
+set.seed(127)
+stacked.ensemble.rf <- caretStack(ensemble.models, method = "rf", metric = "RMSE", trControl = ensemble.control)
+stacked.ensemble.enet <- caretStack(ensemble.models, method="glmnet", metric="RMSE", trControl = ensemble.control)
+```
+
+
+```{r}
+cat("\nStacked ensemble, generalized linear model:\n") 
+stacked.ensemble.glm 
+cat("\n\nStacked ensemble, random forest:\n")
+stacked.ensemble.rf
+cat("\n\nStacked ensemble, elastic net:\n")
+stacked.ensemble.enet
+```
+
+Each of these three models show very comparable R-squared and MAE values. The RMSE is slighly lower for the glmnet-combined stack ensemble model, though this difference may not be significant and may not translate to the out-of-sample data.
+
+These three ensemble models will be used to predict annual change in CDR-Sum of Boxes in the same test dataset. Note: since the models were created with center and scale preprocessing specified, the test data does not need to be manually pre-processed.
+
+Model predictions using **training** data:
+
+<div class="fold s">
+```{r, results='hold'}
+enet.train <- predict.train(ensemble.models$glmnet)
+knn.train <- predict.train(ensemble.models$knn)
+nnet.train <- predict.train(ensemble.models$nnet)
+rf.train <- predict.train(ensemble.models$rf)
+ensemble.glm.train <- predict(stacked.ensemble.glm)
+ensemble.enet.train <- predict(stacked.ensemble.enet)
+ensemble.rf.train <- predict(stacked.ensemble.rf)
+real.train <- original.train$CDRSB
+
+train.df <- do.call(cbind, list(elastic.net=enet.train, knn=knn.train, neural.net=nnet.train, random.forest=rf.train,
+                                         ensemble.glm=ensemble.glm.train, ensemble.enet=ensemble.enet.train, ensemble.rf=ensemble.rf.train,
+                                         real.CDR=real.train)) %>% as.data.frame()
+
+datatable(train.df %>% mutate_if(is.numeric, function(x) round(x,4)))
+```
+</div>
+
+
+Model predictions using **test** data:
+
+<div class="fold s">
+```{r}
+enet.test <- predict.train(ensemble.models$glmnet, newdata=original.test)
+knn.test <- predict.train(ensemble.models$knn, newdata=original.test)
+nnet.test <- predict.train(ensemble.models$nnet, newdata=original.test)
+rf.test <- predict.train(ensemble.models$rf, newdata=original.test)
+ensemble.glm.test <- predict(stacked.ensemble.glm, newdata=original.test)
+ensemble.enet.test <- predict(stacked.ensemble.enet, newdata=original.test)
+ensemble.rf.test <- predict(stacked.ensemble.rf, newdata=original.test)
+real.test <- original.test$CDRSB  
+
+test.df <- do.call(cbind, list(elastic.net=enet.test, knn=knn.test, neural.net=nnet.test, random.forest=rf.test,
+                                         ensemble.glm=ensemble.glm.test, ensemble.enet=ensemble.enet.test, ensemble.rf=ensemble.rf.test,
+                                         real.CDR=real.test)) %>% as.data.frame()
+
+datatable(test.df %>% mutate_if(is.numeric, function(x) round(x,4)))
+```
+</div>
+
+These predictions can be compared with scatterplot visualizations:
+
+<div class="fold s">
+```{r, results='hold'}
+p.train <- train.df %>%
+  pivot_longer(cols=c(-real.CDR), names_to="Model", values_to="Prediction") %>%
+  mutate(Model=factor(Model, levels=c("ensemble.enet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
+  ggplot(data=., mapping=aes(x=real.CDR, y= Prediction, color=Model)) +
+  geom_point(alpha=0.3) +
+  facet_grid(.~Model, scales="free") +
+  ggtitle("Model Predictions for CDR Sum of Boxes Annual Change in Training Data") +
+  theme_minimal() +
+  theme(legend.position="none") +
+  ylab("Predicted CDR-SoB Change") +
+  xlab("Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+
+p.test <- test.df  %>%
+  pivot_longer(cols=c(-real.CDR), names_to="Model", values_to="Prediction") %>%
+  mutate(Model=factor(Model, levels=c("ensemble.enet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
+  ggplot(data=., mapping=aes(x=real.CDR, y= Prediction, color=Model)) +
+  geom_point(alpha=0.3) +
+  facet_grid(.~Model, scales="free") +
+  ggtitle("Model Predictions for CDR Sum of Boxes Annual Change in Test Data") +
+  theme_minimal() +
+  theme(legend.position="none") +
+  ylab("Predicted CDR-SoB Change") +
+  xlab("Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+
+ggplotly(p.train)
+ggplotly(p.test)
+```
+</div>
+
+
+
+Calculate the $R^2$ and RMSE for the training & testing data across the models:
+
+
+<div class="fold s">
+```{r}
+rmse.train <- data.frame(ensemble.enet=RMSE(ensemble.enet.train, real.train),
+                         ensemble.glm=RMSE(ensemble.glm.train, real.train),
+                         ensemble.rf=RMSE(ensemble.rf.train, real.train),
+                         elastic.net=RMSE(enet.train, real.train),
+                         knn=RMSE(knn.train, real.train),
+                         neural.net=RMSE(nnet.train, real.train),
+                         random.forest=RMSE(rf.train, real.train),
+                         Metric="Train_RMSE")
+
+rmse.test <- data.frame(ensemble.enet=RMSE(ensemble.enet.test, real.test),
+                         ensemble.glm=RMSE(ensemble.glm.test, real.test),
+                         ensemble.rf=RMSE(ensemble.rf.test, real.test),
+                         elastic.net=RMSE(enet.test, real.test),
+                         knn=RMSE(knn.test, real.test),
+                         neural.net=RMSE(nnet.test, real.test),
+                         random.forest=RMSE(rf.test, real.test),
+                         Metric="Test_RMSE")
+
+r2.train <- data.frame(ensemble.enet=R2(ensemble.enet.train, real.train),
+                         ensemble.glm=R2(ensemble.glm.train, real.train),
+                         ensemble.rf=R2(ensemble.rf.train, real.train),
+                         elastic.net=R2(enet.train, real.train),
+                         knn=R2(knn.train, real.train),
+                         neural.net=R2(nnet.train, real.train),
+                         random.forest=R2(rf.train, real.train),
+                         Metric="Train_R2")
+
+
+r2.test <- data.frame(ensemble.enet=R2(ensemble.enet.test, real.test),
+                         ensemble.glm=R2(ensemble.glm.test, real.test),
+                         ensemble.rf=R2(ensemble.rf.test, real.test),
+                         elastic.net=R2(enet.test, real.test),
+                         knn=R2(knn.test, real.test),
+                         neural.net=R2(nnet.test, real.test),
+                         random.forest=R2(rf.test, real.test),
+                         Metric="Test_R2")
+
+do.call(plyr::rbind.fill, list(rmse.train, rmse.test, r2.train, r2.test)) %>%
+  pivot_longer(cols=c(-Metric), names_to="Model", values_to="Value") %>%
+  mutate(Metric = str_replace(Metric, "_", " ")) %>%
+  pivot_wider(id_cols="Model", names_from="Metric", values_from="Value") %>%
+  mutate_if(is.numeric, function(x) round(x,4)) %>%
+  datatable()
+```
+
+</div>
+
+
+<div class="fold s">
+```{r}
+overall.ensemble.results <- do.call(plyr::rbind.fill, list(rmse.train, rmse.test, r2.train, r2.test)) %>%
+  pivot_longer(cols=c(-Metric), names_to="Model", values_to="Value") %>%
+  separate(Metric, into=c("Data", "Metric"), sep="_")
+
+p.ensemble.r2.rmse <- overall.ensemble.results %>%
+  mutate(Metric = ifelse(Metric=="RMSE", "Model Root Mean Square Error", "Model R-Squared")) %>%
+  mutate(Data=factor(Data, levels=c("Train", "Test")),
+         Model=factor(Model, levels=c("ensemble.enet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
+  ggplot(data=., mapping=aes(x=Data, y=Value, color=Model, group=Model)) +
+  geom_point() +
+  geom_line() +
+  theme_minimal() +
+  facet_wrap(Metric~., scales="free", nrow=1) +
+  theme(strip.text=element_text(size=12, face="bold"),
+        axis.title=element_blank())
+
+ggplotly(p.ensemble.r2.rmse) %>% 
+  layout(yaxis = list(title = "R2", 
+                      titlefont = list(size = 12)),
+         xaxis = list(title = "Data Subset", 
+                      titlefont = list(size = 12)),
+         yaxis2 = list(title = "RMSE", 
+                      titlefont = list(size = 12)),
+         xaxis2 = list(title = "Data Subset", 
+                      titlefont = list(size = 12)),
+         autosize = F, width = 1000, height = 400)
+```
+</div>
+
+

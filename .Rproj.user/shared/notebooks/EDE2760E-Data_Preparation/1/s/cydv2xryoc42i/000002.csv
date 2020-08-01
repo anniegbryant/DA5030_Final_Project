@@ -1,0 +1,4 @@
+"0","pca.df <- as.matrix(annual.changes %>% ungroup() %>% select(-RID, -CDRSB, -interval_num, -Age_Baseline, -Sex))"
+"0","res.pca <- prcomp(pca.df, center=T, scale.=F)"
+"0","# The variable info can be extracted as follows:"
+"0","var <- get_pca_var(res.pca)"

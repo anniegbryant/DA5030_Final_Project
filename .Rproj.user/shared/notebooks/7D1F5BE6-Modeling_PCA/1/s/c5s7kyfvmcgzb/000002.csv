@@ -1,0 +1,5 @@
+"0","# Stack "
+"0","stack.control <- trainControl(method = ""repeatedcv"", number = 10, verboseIter = TRUE)"
+"0","stacked.ensemble <- caretStack(ensemble.list, method = ""rf"", metric = ""Accuracy"", trControl = stack.control)"
+"2","Error: Metric Accuracy not applicable for regression models
+"

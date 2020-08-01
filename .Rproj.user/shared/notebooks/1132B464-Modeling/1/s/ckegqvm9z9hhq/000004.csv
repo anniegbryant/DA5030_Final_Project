@@ -1,0 +1,1 @@
+"0","rm(p.ridge.train, p.ridge.test, ridge.results.test, ridge.results.train)"

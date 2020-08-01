@@ -1,0 +1,7 @@
+"0","p.select.rois <- ggpairs(annual.roi %>% select(entorhinal, pericalcarine, transversetemporal,"
+"0","                                               lateraloccipital),"
+"0","                         lower = list(continuous = wrap(""smooth"", se=F, "
+"0","                                                        method = ""lm"", color=""lightslategray"","
+"0","                                                        alpha=0.4))) +"
+"0","  theme_minimal()"
+"0","ggplotly(p.select.rois, width=700, height=600)"

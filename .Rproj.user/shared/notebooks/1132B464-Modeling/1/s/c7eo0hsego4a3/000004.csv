@@ -1,0 +1,1 @@
+"0","rm(p.nnet.train, p.nnet.test, nnet.results.test, nnet.results.train)"

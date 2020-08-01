@@ -1,0 +1,1 @@
+"0","rm(p.knn.train, p.knn.test, knn.results.test, knn.results.train, p.knn.r2, p.knn.rmse)"

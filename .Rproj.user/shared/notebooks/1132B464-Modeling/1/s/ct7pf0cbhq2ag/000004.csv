@@ -1,0 +1,6 @@
+"0",""
+"0","knn.train.performance <- data.frame(RMSE = RMSE(train.pred.cdr, train.real.cdr),"
+"0","                                    R2 = R2(train.pred.cdr, train.real.cdr),"
+"0","                                    Model=""kNN"","
+"0","                                    Sample=""Training data"")"
+"0","knn.train.performance"
