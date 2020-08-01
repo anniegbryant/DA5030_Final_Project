@@ -1,0 +1,2 @@
+"0","rm(enet.alpha, enet.rmse, enet.lambda, enet.r2, p.enet.cv, train.index)"
+"2","object 'train.index' not found"

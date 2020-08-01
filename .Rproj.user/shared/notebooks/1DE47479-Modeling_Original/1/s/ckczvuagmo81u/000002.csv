@@ -1,0 +1,4 @@
+"0","ggplotly(p.train) %>% layout(autosize = F, width = 1000, height = 400)
+"
+"2","Specifying width/height in layout() is now deprecated.
+Please specify in ggplotly() or plot_ly()"

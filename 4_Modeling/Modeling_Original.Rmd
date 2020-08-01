@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE, warning=F, message=F)
 ```
 
 
-All packages used for analysis and visualization in this page:
+The following packages are required for analysis and visualization in this page:
 
 ```{r}
 # General data wrangling
@@ -145,7 +145,8 @@ ggplotly(p.enet.cv) %>%
          yaxis2 = list(title = "RMSE", 
                        titlefont = list(size = 12)),
          xaxis2 = list(title = "lambda", 
-                       titlefont = list(size = 12)))
+                       titlefont = list(size = 12)),
+         autosize = F, width = 900, height = 400)
 
 rm(enet.alpha, enet.rmse, enet.lambda, enet.r2, p.enet.cv, train.index)
 ```
@@ -186,7 +187,8 @@ ggplotly(p.knn.cv) %>%
          yaxis2 = list(title = "RMSE", 
                        titlefont = list(size = 12)),
          xaxis2 = list(title = "k", 
-                       titlefont = list(size = 12)))
+                       titlefont = list(size = 12)),
+         autosize = F, width = 900, height = 400)
 
 rm(knn.rmse, knn.k, p.knn.cv, knn.alpha, knn.lambda, knn.r2, train.index)
 ```
@@ -230,7 +232,8 @@ ggplotly(p.nnet.cv) %>%
          yaxis2 = list(title = "RMSE", 
                        titlefont = list(size = 12)),
          xaxis2 = list(title = "# Neurons in Hidden Layer", 
-                       titlefont = list(size = 12)))
+                       titlefont = list(size = 12)),
+         autosize = F, width = 900, height = 400)
 
 rm(n.neurons, nnet.rmse, nnet.r2, nnet.weight, p.nnet.cv)
 ```
@@ -279,7 +282,8 @@ ggplotly(p.rf.cv) %>%
          yaxis2 = list(title = "RMSE", 
                        titlefont = list(size = 12)),
          xaxis2 = list(title = "# Predictors in Decision Node", 
-                       titlefont = list(size = 12)))
+                       titlefont = list(size = 12)),
+         autosize = F, width = 900, height = 400)
 
 rm(splitrule, numpred, rf.rmse, rf.r2, p.rf.cv)
 ```
@@ -296,7 +300,9 @@ set.seed(127)
 ensemble.results <- resamples(ensemble.models)
 summary(ensemble.results)
 ```
-</div>
+</div> 
+
+Looking at the mean RMSE across sample iterations, the elastic net (`glmnet`) has the lowest RMSE; by contrast, the neural network has the highest RMSE. In terms of mean $R^2$, the values are all pretty low (all <0.3), ranging from 0.26 (neural network) down to 0.06 (kNN). 
 
 It's also useful to look at the regression correlation between these component models:
 
@@ -438,8 +444,8 @@ p.test <- test.df  %>%
   xlab("Actual CDR-SoB Change") +
   theme(plot.title=element_text(hjust=0.5))
 
-ggplotly(p.train)
-ggplotly(p.test)
+ggplotly(p.train) %>% layout(autosize = F, width = 900, height = 400)
+ggplotly(p.test) %>% layout(autosize = F, width = 900, height = 400)
 ```
 </div>
 
@@ -525,6 +531,6 @@ ggplotly(p.ensemble.r2.rmse) %>%
                        titlefont = list(size = 12)),
          xaxis2 = list(title = "Data Subset", 
                        titlefont = list(size = 12)),
-         autosize = F, width = 1000, height = 400)
+         autosize = F, width = 900, height = 400)
 ```
 </div>
