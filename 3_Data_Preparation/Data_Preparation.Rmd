@@ -592,11 +592,37 @@ post.pca <- post.pca %>% select(-Sex)
 ```
 
 
+I'm also interested in reducing dimensionality by clustering ROIs by either Braak stage or cortical lobe. I'm going to aggregate by each of these variables to create two additional datasets to use for modeling.
+
+```{r}
+braak.changes <- annual.changes %>%
+  pivot_longer(cols=c(-RID, -Age_Baseline, -Sex_Male, -interval_num, -CDRSB),
+               names_to="ROI", values_to="deltaSUVR") %>%
+  left_join(., roi.braak, by=c("ROI"="Base_Name")) %>% 
+  select(-ROI_Name, -Hemisphere) %>% 
+  distinct() %>%
+  group_by(RID, Age_Baseline, interval_num, CDRSB, Sex_Male, Braak) %>%
+  summarise(deltaSUVR = mean(deltaSUVR)) %>%
+  rowwise() %>%
+  mutate(Braak=paste("Braak_", Braak, sep="")) %>%
+  pivot_wider(id_cols=c(RID:Sex_Male), names_from=Braak, values_from=deltaSUVR)
+
+cortex.changes  <- annual.changes %>%
+  pivot_longer(cols=c(-RID, -Age_Baseline, -Sex_Male, -interval_num, -CDRSB),
+               names_to="ROI", values_to="deltaSUVR") %>%
+  left_join(., roi.braak, by=c("ROI"="Base_Name")) %>% 
+  select(-ROI_Name, -Hemisphere) %>% 
+  distinct() %>%
+  group_by(RID, Age_Baseline, interval_num, CDRSB, Sex_Male, Cortex) %>%
+  summarise(deltaSUVR = mean(deltaSUVR)) %>%
+  rowwise() %>%
+  pivot_wider(id_cols=c(RID:Sex_Male), names_from=Cortex, values_from=deltaSUVR)
+```
 
 
 
 I'll save these prepared datasets to an .RData file for modeling:
 ```{r}
-save(annual.changes, post.pca, file="../Prepared_Data.RData")
+save(annual.changes, post.pca, braak.changes, cortex.changes, file="../Prepared_Data.RData")
 ```
 

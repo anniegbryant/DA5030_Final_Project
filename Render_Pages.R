@@ -10,6 +10,9 @@ rmarkdown::render('3_Data_Preparation/Data_Preparation.Rmd', output_file = '../P
 # Phase 4: Modeling
 rmarkdown::render('4_Modeling/Modeling_Original.Rmd', output_file = '../Pages/4_Modeling_Original.html')
 rmarkdown::render('4_Modeling/Modeling_PCA.Rmd', output_file = '../Pages/4_Modeling_PCA.html')
+rmarkdown::render('4_Modeling/Modeling_Braak.Rmd', output_file = '../Pages/4_Modeling_Braak.html')
+rmarkdown::render('4_Modeling/Modeling_Cortical_Lobes.Rmd', output_file = '../Pages/4_Modeling_Cortex.html')
+
 
 # Phase 5: Model Evaluation
 # to-do
