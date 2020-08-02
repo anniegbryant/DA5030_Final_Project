@@ -38,6 +38,9 @@ library(ranger)
 
 # Ensemble building
 library(caretEnsemble)
+
+# Saving RData objects
+library(cgwtools)
 ```
 
 This page focuses on developing both individual models and model ensembles to predict annual change in CDR-Sum of Boxes based on principle components (PCs) derived from regional tau-PET uptake per year, age at baseline, and sex. This data was prepared in [Data Preparation](https://anniegbryant.github.io/DA5030_Final_Project/Pages/3_Data_Preparation.html) and is the **PCA-transformed** dataset.
@@ -591,3 +594,33 @@ ggplotly(p.ensemble.r2.rmse) %>%
 </div>
 
 There are two clusters of model performance here: random forest, elastic net-, and glm-stacked ensemble models show high $R^2$ in the training data, and all decrease to a very similar quantity (0.15-0.17) in the test dataset. All three show the lowest RMSE as well. By contrast, the neural network, kNN, and random forest-stacked ensemble models show low $R^2$ and high RMSE. Interestingly, their error is higher in the training dataset.
+
+
+Lastly, I will append the PCA dataset and ensemble model developed herein to an .RData file for use in Model Evaluation. First, since all of the objects have the same names across the four modeling pages, I will re-name model objects and datasets to be PCA-specific:
+```{r}
+# Rename relevant objects to have PCA-specific names
+models.for.ensemble.PCA <- ensemble.models
+model.metrics.PCA <- overall.ensemble.results
+stacked.ensemble.glm.PCA <- stacked.ensemble.glm
+stacked.ensemble.glmnet.PCA <- stacked.ensemble.glmnet
+stacked.ensemble.rf.PCA <- stacked.ensemble.rf
+train.preds.PCA <- cbind(train.df, select(pca.train, -CDRSB))
+test.preds.PCA <- cbind(test.df, select(pca.test, -CDRSB))
+
+# If RData file already exists, use resave from cgwtools to append these objects
+if (file.exists("../Model_Results.RData")) {
+  cgwtools::resave(models.for.ensemble.PCA, model.metrics.PCA,
+                   stacked.ensemble.glm.PCA, stacked.ensemble.glmnet.PCA,
+                   stacked.ensemble.rf.PCA, train.preds.PCA, test.preds.PCA, 
+                   file="../Model_Results.RData")
+} else {
+  # If the RData file does not yet exist, create it here
+  save(models.for.ensemble.PCA, model.metrics.PCA,
+       stacked.ensemble.glm.PCA, stacked.ensemble.glmnet.PCA,
+       stacked.ensemble.rf.PCA, train.preds.PCA, test.preds.PCA, 
+       file="../Model_Results.RData")
+}
+
+```
+
+

@@ -589,3 +589,31 @@ ggplotly(p.ensemble.r2.rmse) %>%
 </div>
 
 This plot highlights the sharp decrease in model performance between training and test data for the random forest model in particular. Interestingly, the RMSE actually decreased in the out-of-sample dataset for all models except random forest and neural network.
+
+Lastly, I will append the Braak stage-aggregated dataset and ensemble model developed herein to an .RData file for use in Model Evaluation. First, since all of the objects have the same names across the four modeling pages, I will re-name model objects and datasets to be Braak stage data-specific:
+```{r}
+# Rename relevant objects to have Braak stage-specific names
+models.for.ensemble.BK <- ensemble.models
+model.metrics.BK <- overall.ensemble.results
+stacked.ensemble.glm.BK <- stacked.ensemble.glm
+stacked.ensemble.glmnet.BK <- stacked.ensemble.glmnet
+stacked.ensemble.rf.BK <- stacked.ensemble.rf
+train.preds.BK <- cbind(train.df, select(braak.train, -CDRSB))
+test.preds.BK <- cbind(test.df, select(braak.test, -CDRSB))
+
+# If RData file already exists, use resave from cgwtools to append these objects
+if (file.exists("../Model_Results.RData")) {
+  cgwtools::resave(models.for.ensemble.BK, model.metrics.BK,
+                   stacked.ensemble.glm.BK, stacked.ensemble.glmnet.BK,
+                   stacked.ensemble.rf.BK, train.preds.BK, test.preds.BK, 
+                   file="../Model_Results.RData")
+} else {
+  # If the RData file does not yet exist, create it here
+  save(models.for.ensemble.BK, model.metrics.BK,
+       stacked.ensemble.glm.BK, stacked.ensemble.glmnet.BK,
+       stacked.ensemble.rf.BK, train.preds.BK, test.preds.BK, 
+       file="../Model_Results.RData")
+}
+
+```
+

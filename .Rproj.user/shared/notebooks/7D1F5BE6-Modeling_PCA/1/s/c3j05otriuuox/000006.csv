@@ -1,0 +1,2 @@
+"0",""
+"0","rm(knn.rmse, knn.k, p.knn.cv, knn.mae)"

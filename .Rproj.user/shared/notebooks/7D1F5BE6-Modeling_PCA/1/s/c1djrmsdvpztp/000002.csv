@@ -21,7 +21,3 @@
 "0","                                                      metric=""RMSE"", "
 "0","                                                      preProcess=c(""center"", ""scale""),"
 "0","                                                      tuneList=list(my.neuralnet, my.knn, my.randomforest, my.elasticnet))))"
-"2","trControl$savePredictions not 'all' or 'final'.  Setting to 'final' so we can ensemble the models."
-"2","indexes not defined in trControl.  Attempting to set them ourselves, so each model in the ensemble will have the same resampling indexes."
-"2","There were missing values in resampled performance measures."
-"2","There were missing values in resampled performance measures."
