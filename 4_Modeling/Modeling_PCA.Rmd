@@ -160,6 +160,8 @@ rm(glmnet.alpha, glmnet.rmse, glmnet.lambda, glmnet.mae, p.glmnet.cv, train.inde
 ```
 </div>
 
+Based on RMSE, lambda=1 was chosen -- this is the largest penalty value of the four assessed lambda values. Additionally, alpha=0.6 was chosen, meaning the model is a blend of ridge and lasso regression, leaning slightly toward lasso regression (which uses L1 regularization).
+
 &nbsp;
 
 **kNN**
@@ -205,6 +207,8 @@ ggplotly(p.knn.cv) %>%
 rm(knn.rmse, knn.k, p.knn.cv, knn.mae)
 ```
 </div>
+
+k=17 was chosen to minimize the RMSE. This value is also a local minima for the MAE, though the MAE decreases with larger values of k.
 
 &nbsp;
 
@@ -255,13 +259,13 @@ rm(n.neurons, nnet.rmse, nnet.mae, nnet.weight, p.nnet.cv)
 ```
 </div>
 
-The optimal neural network includes three neurons in the hidden layer, each of which receive input from all 33 input nodes (31 ROIs, baseline age, and sex) and output onto the final prediction node. Here's a graphical representation of this `caret`-trained neural network:
+The optimal neural network based on RMSE includes on neuron in the hidden layer, which receives input from all 33 input nodes (31 ROIs, baseline age, and sex) and outputs onto the final prediction node. The decay weight was chosen as 0.8. Here's a graphical representation of this `caret`-trained neural network:
 ```{r, out.width="120%", out.height="100%"}
 par(mar = numeric(4))
 plotnet(ensemble.models$nnet, cex_val=0.8, pad_x=0.6, pos_col="firebrick3", neg_col="dodgerblue4",
         circle_col="lightslategray", bord_col="lightslategray", alpha_val=0.4)
 ```
-
+Age at baseline, PC1, PC5, and sex (male) all exert negative weights onto the hidden layer, while PC2, PC3, and PC4 exert positive weights.
 
 **Random Forest**
 
@@ -309,6 +313,7 @@ rm(splitrule, numpred, rf.rmse, rf.mae, p.rf.cv)
 ```
 </div>
 
+An `mtry` of 3 with an `extratrees` split rule yielded the lowest RMSE, meaning three predictor terms are considered at each decision node. This combination also yielded the lowest MAE value.
 
 These four models can be resampled and aggregated using the `resamples` function:
 
@@ -322,7 +327,7 @@ summary(ensemble.results)
 ```
 </div> 
 
-Looking at the mean RMSE across sample iterations, the elastic net (`glmnet`) has the lowest RMSE; by contrast, the neural network has the highest RMSE. This reports the $R^2$ values as well, though as the models are non-linear regressions (aside from elastic net), this isn't a valid comparison metric in this instance.
+The values of `NA` for the `glmnet` model $R^2$ indicate that the model outputs all the same predictions, possibly indicating that the model only includes the intercept term after coefficient shrinking. The kNN model has the lowest mean MAE and RMSE out of all the models.
 
 It's also useful to look at the regression correlation between these component models:
 
@@ -339,7 +344,7 @@ modelCor(ensemble.results, metric="MAE")
 
 </div>
 
-kNN and random forest show very high error correlation (R>0.98). The other models also show relatively high error correlation; this is not ideal, since ensemble models are designed to counterbalance individual model error. The error can be visualized with confidence intervals using the `dotplot` function:
+The models are extremely correlated in terms of error (all R>0.95). This is not ideal, since ensemble models are designed to counterbalance individual model error. The error can be visualized with confidence intervals using the `dotplot` function:
 
 ```{r, out.width="800px", out.height="500px"}
 # Plot the four models' RMSE values
@@ -349,8 +354,7 @@ p.mae <- as.ggplot(dotplot(ensemble.results, metric="MAE"))
 # Combine plots side-by-side
 grid.arrange(p.rmse, p.mae, ncol=2)
 ```
-
-These four models show comparable RMSE confidence intervals. The elastic net regression model shows the lowest estimated RMSE, while the neural network shows the highest estimated RMSE. kNN showed the lowest MAE, while the neural network also showed the highest MAE. Despite the large error correlation between the models, I'll move forward to see if ensembling strengthens the overall predictions for the change in CDR-Sum of Boxes over time.
+The models all show very similar RMSE confidence intervals. The kNN model shows a lower MAE than the other three models, while the neural network showed the highest MAE value. Despite the large error correlation between the models, I'll move forward to see if ensembling strengthens the overall predictions for the change in CDR-Sum of Boxes over time.
 
 
 Starting with the basic `caretEnsemble` function, which by default employs a generalized linear model to combine the component models:
@@ -364,13 +368,13 @@ stacked.ensemble.glm <- caretEnsemble(ensemble.models, metric="RMSE", trControl=
 summary(stacked.ensemble.glm)
 ```
 
-The elastic net model (`glmnet`) shows the lowest RMSE of the four models. `caret` offers a function `autoplot` to create in-depth diagnostic plots for ensemble models:
+All the models show similar RMSE values, but kNN offers the lowest by a slim margin. `caret` offers a function `autoplot` to create in-depth diagnostic plots for ensemble models:
 
 ```{r}
 autoplot(stacked.ensemble.glm)
 ```
 
-The top left graph shows the mean cross-validated RMSE per model, with the bars denoting RMSE standard deviation. The elastic net model shows the lowest RMSE of the four, and its RMSE is even lower than that of the full ensemble model (indicated by the red dashed line). The middle left plot shows the relative weight given to each model in a linear combination; the elastic net has the highest weighting, followed by ranger and neural network; kNN actually has a negative weight. 
+The top left graph shows the mean cross-validated RMSE per model, with the bars denoting RMSE standard deviation. The red dashed line shows the RMSE of the ensemble model, which is slightly lower than that of any of the individual models. The middle-left plot shows a large negative weight associated with the elastic net model, smaller weights associated wtih kNN, neural network, and random forest, and a larger positive weight for the intercept.
 
 Stacked ensembles can also be constructed using `caretStack`, which applies user-defined linear combinations of each constituent model. I'll try one using a random forest combination of models and one using an elastic net combination of models.
 
@@ -395,9 +399,7 @@ stacked.ensemble.glmnet
 ```
 </div>
 
-Each of these four models show pretty comparable RMSE and MAE values. The RMSE is slighly lower for the glmnet-combined stack ensemble model, though this difference may not be significant and may not translate to the out-of-sample data.
-
-These three ensemble models (glm-, rf-, and glmnet-combined) will be used to predict annual change in CDR-Sum of Boxes in the same test dataset. Note: since the models were created with center and scale preprocessing specified, the test data does not need to be manually pre-processed.
+The elastic net-stacked ensemble model shows the lowest cross-validated RMSE and MAE of the three ensembles, though this difference may not be significant and may not translate to the out-of-sample data. These three ensemble models (glm-, rf-, and glmnet-combined) will be used to predict annual change in CDR-Sum of Boxes in the same test dataset. Note: since the models were created with center and scale preprocessing specified, the test data does not need to be manually pre-processed.
 
 Model predictions using **training** data:
 
@@ -423,6 +425,7 @@ datatable(train.df %>% mutate_if(is.numeric, function(x) round(x,4)) %>% select(
 ```
 </div>
 
+The elastic net individual model clearly predicts the same value (0.3539) for all training cases, indicating it will not be of much use to predict the CDR Sum of Boxes change.
 
 Model predictions using **test** data:
 
@@ -507,6 +510,8 @@ do.call(plyr::rbind.fill, list(rmse.train, rmse.test, r2.train, r2.test)) %>%
 
 </div>
 
+The random forest model shows the lowest RMSE between predicted vs. real CDR-Sum of Boxes for both the training and test data. It also has the highest $R^2$ value between predicted and real CDR-Sum of Boxes rate of change. However, the training $R^2$ of 0.8860 is substantially larger than the test data $R^2$ of 0.1752, suggesting major overfitting.
+
 I will also use scatterplot visualizations for comparison:
 
 <div class="fold s">
@@ -545,9 +550,10 @@ p.test <- test.df  %>%
 ggplotly(p.train, height=350, width=900)
 ggplotly(p.test, height=350, width=900) 
 ```
-</div>
+</div> 
 
-The predicted CDR-SoB change values from the random forest individual model were very similar to the actual observed values, yielding an $R^2$ of 0.94. However, comparing this with the $R^2$ of 0.16 in the test dataset suggests that the model may be overfit to the training data and does not perform well outside of that dataset. The same can be said of the other models, all of which exhibited substantially 
+In the training dataset, the random forest predictions are pretty close, with the glm- and elastic net-stacked ensemble models showing nearly comparable correlations between real vs. predicted values. However, this relationship is not evident in the testing data. 
+Aside from the elastic net individual model, the individual and ensemble models all tend ot over-estimate CDR-Sum of Boxes for test cases with zero actual change. Beyond zero, however, the models tend to *underestimate* CDR-Sum of Boxes change, particular for values of ~1.5 and above.
 
 
 <div class="fold s">
@@ -583,3 +589,5 @@ ggplotly(p.ensemble.r2.rmse) %>%
          autosize = F, width = 900, height = 400)
 ```
 </div>
+
+There are two clusters of model performance here: random forest, elastic net-, and glm-stacked ensemble models show high $R^2$ in the training data, and all decrease to a very similar quantity (0.15-0.17) in the test dataset. All three show the lowest RMSE as well. By contrast, the neural network, kNN, and random forest-stacked ensemble models show low $R^2$ and high RMSE. Interestingly, their error is higher in the training dataset.
