@@ -1,3 +1,0 @@
-"0","set.seed(127)"
-"0","stacked.ensemble.rf <- caretStack(ensemble.models, method = ""rf"", metric = ""RMSE"", trControl = ensemble.control)"
-"0","stacked.ensemble.enet <- caretStack(ensemble.models, method=""glmnet"", metric=""RMSE"", trControl = ensemble.control)"

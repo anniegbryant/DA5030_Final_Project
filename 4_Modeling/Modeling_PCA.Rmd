@@ -604,20 +604,18 @@ model.metrics.PCA <- overall.ensemble.results
 stacked.ensemble.glm.PCA <- stacked.ensemble.glm
 stacked.ensemble.glmnet.PCA <- stacked.ensemble.glmnet
 stacked.ensemble.rf.PCA <- stacked.ensemble.rf
-train.preds.PCA <- cbind(train.df, select(pca.train, -CDRSB))
-test.preds.PCA <- cbind(test.df, select(pca.test, -CDRSB))
 
 # If RData file already exists, use resave from cgwtools to append these objects
 if (file.exists("../Model_Results.RData")) {
   cgwtools::resave(models.for.ensemble.PCA, model.metrics.PCA,
                    stacked.ensemble.glm.PCA, stacked.ensemble.glmnet.PCA,
-                   stacked.ensemble.rf.PCA, train.preds.PCA, test.preds.PCA, 
+                   stacked.ensemble.rf.PCA, pca.train, pca.test, 
                    file="../Model_Results.RData")
 } else {
   # If the RData file does not yet exist, create it here
   save(models.for.ensemble.PCA, model.metrics.PCA,
        stacked.ensemble.glm.PCA, stacked.ensemble.glmnet.PCA,
-       stacked.ensemble.rf.PCA, train.preds.PCA, test.preds.PCA, 
+       stacked.ensemble.rf.PCA, pca.train, pca.test,
        file="../Model_Results.RData")
 }
 

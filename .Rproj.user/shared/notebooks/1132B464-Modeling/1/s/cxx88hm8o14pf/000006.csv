@@ -1,2 +1,0 @@
-"0",""
-"0","rm(n.neurons, nnet.rmse, nnet.r2, nnet.weight, p.nnet.rmse, p.nnet.r2, knn.k, knn.r2, knn.rmse)"

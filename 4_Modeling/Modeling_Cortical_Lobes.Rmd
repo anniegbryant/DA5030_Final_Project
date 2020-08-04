@@ -609,20 +609,18 @@ model.metrics.CTX <- overall.ensemble.results
 stacked.ensemble.glm.CTX <- stacked.ensemble.glm
 stacked.ensemble.glmnet.CTX <- stacked.ensemble.glmnet
 stacked.ensemble.rf.CTX <- stacked.ensemble.rf
-train.preds.CTX <- cbind(train.df, select(cortex.train, -CDRSB))
-test.preds.CTX <- cbind(test.df, select(cortex.test, -CDRSB))
 
 # If RData file already exists, use resave from cgwtools to append these objects
 if (file.exists("../Model_Results.RData")) {
   cgwtools::resave(models.for.ensemble.CTX, model.metrics.CTX,
                    stacked.ensemble.glm.CTX, stacked.ensemble.glmnet.CTX,
-                   stacked.ensemble.rf.CTX, train.preds.CTX, test.preds.CTX, 
+                   stacked.ensemble.rf.CTX, cortex.train, cortex.test,
                    file="../Model_Results.RData")
 } else {
   # If the RData file does not yet exist, create it here
   save(models.for.ensemble.CTX, model.metrics.CTX,
        stacked.ensemble.glm.CTX, stacked.ensemble.glmnet.CTX,
-       stacked.ensemble.rf.CTX, train.preds.CTX, test.preds.CTX, 
+       stacked.ensemble.rf.CTX, cortex.train, cortex.test,
        file="../Model_Results.RData")
 }
 

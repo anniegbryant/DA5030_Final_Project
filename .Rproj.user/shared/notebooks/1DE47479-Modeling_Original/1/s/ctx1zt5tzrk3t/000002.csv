@@ -1,3 +1,5 @@
 "0","set.seed(127)"
+"0","# Create random forest-combined stacked ensemble"
 "0","stacked.ensemble.rf <- caretStack(ensemble.models, method = ""rf"", metric = ""RMSE"", trControl = ensemble.control)"
+"0","# Create elastic net-combined stacked ensemble"
 "0","stacked.ensemble.glmnet <- caretStack(ensemble.models, method=""glmnet"", metric=""RMSE"", trControl = ensemble.control)"

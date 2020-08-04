@@ -1,5 +1,0 @@
-"0","#import the function from Github"
-"0","library(NeuralNetTools)"
-"0","par(mar = numeric(4))"
-"0","plotnet(nnet.fit, cex_val=0.8, pad_x=0.6, pos_col=""firebrick3"", neg_col=""dodgerblue4"","
-"0","        circle_col=""lightslategray"", bord_col=""lightslategray"", alpha_val=0.4)"

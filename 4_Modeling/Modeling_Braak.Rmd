@@ -598,20 +598,17 @@ model.metrics.BK <- overall.ensemble.results
 stacked.ensemble.glm.BK <- stacked.ensemble.glm
 stacked.ensemble.glmnet.BK <- stacked.ensemble.glmnet
 stacked.ensemble.rf.BK <- stacked.ensemble.rf
-train.preds.BK <- cbind(train.df, select(braak.train, -CDRSB))
-test.preds.BK <- cbind(test.df, select(braak.test, -CDRSB))
-
 # If RData file already exists, use resave from cgwtools to append these objects
 if (file.exists("../Model_Results.RData")) {
   cgwtools::resave(models.for.ensemble.BK, model.metrics.BK,
                    stacked.ensemble.glm.BK, stacked.ensemble.glmnet.BK,
-                   stacked.ensemble.rf.BK, train.preds.BK, test.preds.BK, 
+                   stacked.ensemble.rf.BK, braak.train, braak.test, 
                    file="../Model_Results.RData")
 } else {
   # If the RData file does not yet exist, create it here
   save(models.for.ensemble.BK, model.metrics.BK,
        stacked.ensemble.glm.BK, stacked.ensemble.glmnet.BK,
-       stacked.ensemble.rf.BK, train.preds.BK, test.preds.BK, 
+       stacked.ensemble.rf.BK, braak.train, braak.test,  
        file="../Model_Results.RData")
 }
 

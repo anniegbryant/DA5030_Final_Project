@@ -3,7 +3,11 @@
         {
             "columnIndex": 2,
             "ascending": true
+        },
+        {
+            "columnIndex": 1,
+            "ascending": true
         }
     ],
-    "path": "D:/DA5030/DA5030_Final_Project/4_Modeling"
+    "path": "D:/DA5030/DA5030_Final_Project/2_Data_Understanding"
 }
