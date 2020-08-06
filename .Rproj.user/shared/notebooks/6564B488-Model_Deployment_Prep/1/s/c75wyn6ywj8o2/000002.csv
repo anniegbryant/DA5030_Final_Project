@@ -1,0 +1,7 @@
+"0","original.roi.corr <- original.full %>%"
+"0","  select(-Age_Baseline, -Sex_Male, -CDRSB) %>%"
+"0","  as.matrix()"
+"0",""
+"0","original.roi.corr <- rcorr(original.roi.corr)"
+"0","original.roi.corr.coef <- original.roi.corr$r"
+"0","original.roi.corr.p <- original.roi.corr$P"

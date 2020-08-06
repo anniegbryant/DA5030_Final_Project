@@ -1,0 +1,4 @@
+"0","mypal <- ggsci::pal_lancet(6)
+"
+"2","Error in match.arg(palette) : 'arg' must be NULL or a character vector
+"

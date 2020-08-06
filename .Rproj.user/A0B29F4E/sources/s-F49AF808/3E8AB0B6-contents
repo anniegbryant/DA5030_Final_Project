@@ -1,0 +1,210 @@
+---
+title: "AV1451 Tau-PET Uptake Change Analysis"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+---
+
+
+```{r global, include=FALSE}
+# load data in 'global' chunk so it can be shared
+# by all users of the dashboard
+
+library(shiny)
+library(DT)
+library(tidyverse)
+library(broom)
+library(tidyr)
+library(data.table)
+library(ggpubr)
+library(ggraph)
+library(igraph)
+library(dendextend)
+library(colorRamps)
+library(shinyWidgets)
+library(colorspace)
+library(colormap)
+library(readxl)
+library(ggrepel)
+library(RColorBrewer)
+library(shinydashboard)
+library(ggseg)
+library(edgebundleR)
+#devtools::install_github("johannesbjork/LaCroixColoR")
+library(LaCroixColoR)
+
+library(shiny)
+library(semantic.dashboard)
+library(ggplot2)
+library(plotly)
+library(DT)
+```
+
+
+```{r}
+load("shiny_data.RData")
+
+edges <- read.csv("tau_roi_nodes.csv") %>% distinct()
+rois <- edges %>% filter(!(to %in% c("Cingulate", "Frontal", "Insula",
+                                     "Occipital", "Parietal", "Temporal")))
+
+#create a vertices data.frame. One line per object of the ROI hierarchy
+vertices = data.frame(name = unique(c(as.character(edges$from), as.character(edges$to))))
+vertices$group <- edges$from[match(vertices$name, edges$to)]
+
+#Create a graph object
+mygraph <- graph_from_data_frame( edges, vertices=vertices )
+
+curve_to_roi <- read.csv("curve_to_roi.csv")
+```
+
+
+
+Column {.sidebar}
+--------------------------------------------------
+
+Select a cortical region of interest to view its relative importance in each model and its tau-PET uptake correlation with other cortical regions.
+
+```{r}
+pickerInput("ROI", "ROI:",
+            list("Cingulate Cortex" = (subset(rois, from=="Cingulate") %>% pull(to)),
+                 "Frontal Cortex" = subset(rois, from=="Frontal") %>% pull(to),
+                 "Insula Cortex" = subset(rois, from=="Insula") %>% pull(to),
+                 "Occipital Cortex" = subset(rois, from=="Occipital") %>% pull(to),
+                 "Parietal Cortex" = subset(rois, from=="Parietal") %>% pull(to),
+                 "Temporal Cortex" = subset(rois, from=="Temporal") %>% pull(to)),
+            options=list(`actions-box`=T),
+            multiple=F)
+
+sliderInput("mincor", "Minimum correlation magnitude:",
+            min=0, max=1, value=0.5)
+
+
+selectInput("pval", "Maximum p-value:",
+            c("0.001", "0.01", "0.05"),
+            selected="0.05")
+
+```
+
+Row {data-height=350}
+-------------------------------------
+
+### ROI Importance
+
+```{r}
+# Pre-define color palette
+my.pal <- colorRampPalette(c("#C0D3D9", "#7DBCDD", "#2D69A5", "#2A486C"))(200)
+
+renderPlotly({
+  # Plot the variable importance for each model
+  p.importance <- og.importance %>%
+    filter(Term==input$ROI) %>%
+    ggplot(data=., mapping=aes(x=Model, y=Importance, fill=Importance)) +
+    geom_bar(stat="identity") +
+    theme_minimal() +
+    scale_fill_gradientn(colors=my.pal) +
+    ylab("ROI % Importance") +
+    xlab("Model") +
+    # Rotate x-axis text for legibility
+    theme(strip.text = element_text(size=14),
+          legend.position="none")
+  
+  # Convert to interactive plotly visualization
+  ggplotly(p.importance)
+})
+```   
+
+### ROI Location in Brain
+
+```{r}
+# Pre-define color palette
+my.pal <- colorRampPalette(c("#C0D3D9", "#7DBCDD", "#2D69A5", "#2A486C"))(200)
+
+#if input$ROI %in% c("hippocampus", "amygdala")
+
+renderPlotly({
+  
+  p.roi.imp <- data.frame(curve_to_roi) %>%
+    rename("region"="ROI") %>%
+    left_join(., ggseg.aparc, by=c("region"="ggseg_ROI")) %>%
+    mutate(val=ifelse(tau_ROI==input$ROI, "1", "0")) %>%
+    # Convert to brain representation using Desikan-Killiany (dk) atlas
+    ggseg(atlas="dk", color="white", mapping=aes(fill=val, label=region), 
+          position="stacked", hemisphere="right") +
+    scale_fill_manual(values=c("gray90", "deepskyblue3"), na.value="gray90") +
+    theme(axis.text=element_blank(),
+          axis.title=element_blank(),
+          legend.position="none")
+  
+  # Convert to interactive plotly visualization
+  ggplotly(p.roi.imp, dynamicTicks = T, tooltip=c("label"))
+})
+```   
+
+Row {data-height=650}
+-------------------------------------
+
+### Correlation with other ROI tau-PET changes
+
+```{r}
+renderPlot({
+  connect <- original.roi.corr.results %>%
+    filter(ROI2 %in% input$ROI | ROI1 %in% input$ROI,
+           p.val < input$pval,
+           abs(Pearson_Corr) > input$mincor) %>%
+    rename("from" = "ROI1",
+           "to" = "ROI2",
+           "value" = "Pearson_Corr") %>%
+    mutate(logp = -1*log(p.val, 10)) %>%
+    arrange(from, to)
+  
+  
+  p <- ggraph(mygraph, layout = 'dendrogram', circular = TRUE) + 
+    theme_void()
+  
+  
+  if (nrow(connect!=0)) {
+    
+    from <- match(connect$from, vertices$name)
+    to <- match(connect$to, vertices$name)
+    
+    p <- p +  geom_conn_bundle(data = get_con(from = from, to = to, 
+                                              pval=connect$logp,
+                                              corr=connect$value), 
+                               tension=0.5, width=3, #alpha=0.4,
+                               aes(alpha=corr), color="lightsteelblue3")  +
+      labs(edge_width="Pearson\nCorrelation")
+    
+    p <- p + geom_node_point(aes(filter = leaf, x = x*1.05, y=y*1.05, colour=group),   
+                             size=3) +
+      scale_color_manual(values=lacroix_palette("PassionFruit")) +
+      labs(color="Cortex") +
+      geom_node_text(aes(x = x*1.2, y=y*1.2, filter = leaf, label=name,
+                         color=group))+ 
+      theme_void() + 
+      ggtitle("Significant Tau-PET SUVR Change Correlations by ROI") +
+      theme(plot.title=element_text(size=14, face="bold", hjust=0.5),
+            legend.margin=margin(0,0,0,0),
+            legend.box.margin=margin(10,10,10,10))
+    
+    
+  }
+  
+  else {
+    p <- p + geom_node_point(aes(filter = leaf, x = x*1.05, y=y*1.05, colour=group),   
+                             size=3) +
+      scale_color_manual(values=lacroix_palette("PassionFruit")) +
+      labs(color="Cortex") +
+      geom_node_text(aes(x = x*1.2, y=y*1.2, filter = leaf, label=name,
+                         color=group))+ 
+      theme_void() + 
+      ggtitle("Significant Tau-PET SUVR Change Correlations by ROI") +
+      theme(plot.title=element_text(size=14, face="bold", hjust=0.5),
+            legend.margin=margin(0,0,0,0),
+            legend.box.margin=margin(10,10,10,10))
+  }
+  p
+  
+})
+```

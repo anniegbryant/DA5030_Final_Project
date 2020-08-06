@@ -1,0 +1,104 @@
+---
+title: "Model Deployment Preparation"
+author: "Annie Bryant"
+date: "8/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The following packages are required for analysis and visualization in this page:
+
+```{r}
+# General data wrangling
+library(tidyverse)
+library(DT)
+library(readxl)
+
+# Visualization
+library(plotly)
+library(colorRamps)
+library(RColorBrewer)
+library(colorspace)
+library(ggseg)
+library(forcats)
+
+# Modeling
+library(glmnet)
+library(caret)
+library(ranger)
+
+# Ensemble building
+library(caretEnsemble)
+
+# Correlations
+library(Hmisc)
+```
+
+
+Load the models constructed in Modeling:
+```{r}
+load("../../Model_Results.RData")
+load("../../Variable_Importance.RData")
+```
+
+
+Combine original train + original test into full df:
+```{r}
+original.full <- plyr::rbind.fill(original.train, original.test)
+```
+
+Pivot original.full from wide --> long, omitting age/sex
+
+```{r}
+original.roi.long <- original.full %>%
+  select(-Age_Baseline, -Sex_Male) %>%
+  pivot_longer(cols=c(-CDRSB), names_to="ROI", values_to="SUVR_Change")
+```
+
+
+
+```{r}
+original.roi.corr <- original.full %>%
+  select(-Age_Baseline, -Sex_Male, -CDRSB) %>%
+  as.matrix()
+
+original.roi.corr <- rcorr(original.roi.corr)
+original.roi.corr.coef <- original.roi.corr$r
+original.roi.corr.p <- original.roi.corr$P
+```
+
+Convert from wide --> long
+
+```{r}
+original.roi.corr.coef.long <- as.data.frame(original.roi.corr.coef) %>%
+  rownames_to_column(var="ROI1") %>%
+  pivot_longer(cols=c(-ROI1), names_to="ROI2", values_to="Pearson_Corr") %>%
+  filter(ROI1 != ROI2) %>%
+  mutate(ROI12 = ifelse(ROI1<ROI2, paste(ROI1, ROI2, sep="_"),
+                        paste(ROI2, ROI1, sep="_"))) %>%
+  distinct(ROI12, .keep_all=T) %>%
+  select(-ROI12)
+
+original.roi.corr.p.long <- as.data.frame(original.roi.corr.p) %>%
+  rownames_to_column(var="ROI1") %>%
+  pivot_longer(cols=c(-ROI1), names_to="ROI2", values_to="p.val") %>%
+  filter(ROI1 != ROI2) %>%
+  mutate(ROI12 = ifelse(ROI1<ROI2, paste(ROI1, ROI2, sep="_"),
+                        paste(ROI2, ROI1, sep="_"))) %>%
+  distinct(ROI12, .keep_all=T) %>%
+  select(-ROI12) %>%
+  mutate(FDR=p.adjust(p.val, method="fdr"))
+
+
+original.roi.corr.results <- left_join(original.roi.corr.coef.long, original.roi.corr.p.long)
+```
+
+
+
+```{r}
+save(original.roi.corr.coef, og.importance, original.roi.corr.results, ggseg.aparc, ggseg.aseg, file="shiny_data.RData")
+```
+
