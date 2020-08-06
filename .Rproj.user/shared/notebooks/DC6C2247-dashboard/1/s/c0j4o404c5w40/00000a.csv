@@ -1,5 +1,0 @@
-"0","  p.brain <- gridExtra::grid.arrange(p.aparc, p.aseg)
-"
-"2","Error in grid.Call.graphics(C_path, x$x, x$y, index, switch(x$rule, winding = 1L,  : 
-  non-finite x or y in graphics path
-"

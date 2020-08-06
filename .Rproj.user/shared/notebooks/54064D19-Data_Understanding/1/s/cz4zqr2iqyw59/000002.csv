@@ -1,2 +1,0 @@
-"0","subj.info <- read.csv(""../../ADNI_Data/Raw_Data/ADNIMERGE.csv"", stringsAsFactors = T, na.strings="""")"
-"0","subj.info.fields <- read_excel(""../../ADNI_Data/Cleaned_Data/adnimerge_dict_mod.xlsx"")"
