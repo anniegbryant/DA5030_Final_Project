@@ -1,2 +1,0 @@
-"0","subj.info <- read.csv(""../../ADNI_Data/Raw_Data/ADNIMERGE.csv"", stringsAsFactors = T, na.strings="""")"
-"0","subj.info <- subj.info %>% select(RID, VISCODE, AGE, PTGENDER, CDRSB, DX)"

@@ -1,4 +1,0 @@
-"0","as.data.frame(t(annual.changes[224,])) %>%"
-"0","  rownames_to_column(var=""Variable"") %>%"
-"0","  dplyr::rename(""Value"" = ""V1"") %>%"
-"0","  datatable()"

@@ -1,8 +1,0 @@
-"0","annual.changes.tau <- annual.changes %>%"
-"0","  select(-CDRSB) %>%"
-"0","  ungroup() %>%"
-"0","  pivot_longer(cols=c(-RID, -interval_num, -Age_Baseline, -Sex), names_to=""ROI"","
-"0","               values_to=""deltaSUVR"")"
-"0",""
-"0","multi.hist(annual.changes %>% ungroup() %>% select(-RID, -interval_num, -CDRSB, -Age_Baseline, -Sex),"
-"0","           dcol=""red"")"

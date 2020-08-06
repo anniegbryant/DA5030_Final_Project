@@ -1,0 +1,614 @@
+---
+title: "Modeling -- Original Data"
+output: 
+  html_document:
+    css: "../my_style.css"
+---
+
+<script src="../hideOutput.js"></script>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=F, message=F)
+```
+
+
+The following packages are required for analysis and visualization in this page:
+
+```{r}
+# General data wrangling
+library(tidyverse)
+library(DT)
+library(readxl)
+
+# Visualization
+library(plotly)
+library(colorRamps)
+library(RColorBrewer)
+library(colorspace)
+library(NeuralNetTools)
+library(gridExtra)
+library(ggplotify)
+library(knitr)
+library(kableExtra)
+
+# Modeling
+library(glmnet)
+library(caret)
+library(ranger)
+
+# Ensemble building
+library(caretEnsemble)
+```
+
+This page focuses on developing both individual models and model ensembles to predict annual change in CDR-Sum of Boxes based on rate of change in regional tau-PET accumulation, with age at baseline and sex included as covariates. This data was prepared in [Data Preparation](https://anniegbryant.github.io/DA5030_Final_Project/Pages/3_Data_Preparation.html) and is the **non-PCA-transformed** dataset. The same models are applied to PCA-transformed data in [PCA Modeling](https://anniegbryant.github.io/DA5030_Final_Project/Pages/4_Modeling_PCA.html) to compare the results with the dimension-reduced and orthogonal principal components.
+
+
+First, load in the data prepared in the previous data preparation phase:
+```{r}
+load("../Prepared_Data.RData")
+```
+
+As per standard convention in model development, I will randomly partition this dataset into training and testing subsets, such that the models are trained and evaluated in independent data subsets. I will use the `sample` function with a specific seed set (127) to partition the data into **75% training** and **25% testing**.
+
+
+```{r}
+# Set seed for consistency in random sampling for 10-foldcross-validation
+set.seed(127)
+train.index <- sample(nrow(annual.changes), nrow(annual.changes)*0.75, replace=F)
+
+# Remove unneccessary identifier info from datasets for modeling
+original <- annual.changes %>% ungroup() %>% select(-RID, -interval_num)
+
+# Pre-processing will be applied in model training with caret
+
+# Subset training + test data for original (ROI) data
+original.train <- original[train.index, ]
+original.test <- original[-train.index, ]
+```
+
+
+### Ensemble Construction 
+
+I will be using the `caretEnsemble` package to compile four individual regression models into a stacked ensemble. This package enables evaluation of the models individually as well as together in the ensemble. 
+
+The first step is to create a `caretList` of the four regression models I will use:  
+
+* Elastic net regression (`glmnet`) 
+* k-nearest neighbors regression (`knn`) 
+* Neural network regression (`nnet`) 
+* Random forest regression (`ranger`) 
+
+I will use the `trainControl` function to specify ten-fold cross-validation with parallel processing. 
+```{r}
+# trainControl for 10-fold CV and parallel processing
+ensemble.control <- trainControl(method="cv", number=10, allowParallel=T)
+```
+
+I'm using the RMSE as the metric according to which model parameters are tuned. All input data (which includes training and test data) will be automatically standardized using the `preProcess` center + scaling feature.
+
+```{r}
+# Set seed for consistency
+set.seed(127)
+
+# Neural net -- linout=T means linear output (i.e. not constrained to be [0,1]),
+# try a range of hidden layer sizes and weight decays
+my.neuralnet <- caretModelSpec(method="nnet", linout=T, trace=F, tuneGrid = expand.grid(size=c(1, 3, 5, 10, 15), decay = seq(0, 1, by=0.2)))
+
+# k-nearest neighbors: try 20 different values of k
+my.knn <- caretModelSpec(method="knn", tuneLength=20)
+
+# random forest: try 15 different numbers of features considered at each node and use 500 sampled trees
+my.randomforest <- caretModelSpec(method="ranger", tuneLength=15, num.trees=500, importance="permutation")
+
+# elastic net: try four different values of alpha for ridge/lasso blending and four lambda values for coefficient penalty
+my.elasticnet <- caretModelSpec(method="glmnet",tuneGrid=expand.grid(alpha=c(0,0.1,0.6,1), lambda=c(5^-5,5^-3,5^-1,1)))
+
+# Compile individual models into one cohesive model list using caretList
+invisible(capture.output(ensemble.models <- caretList(CDRSB ~ ., 
+                                                      data=original.train, 
+                                                      trControl=ensemble.control, 
+                                                      metric="RMSE", 
+                                                      preProcess=c("center", "scale"),
+                                                      tuneList=list(my.neuralnet, my.knn, my.randomforest, my.elasticnet))))
+```
+
+
+The final chosen parameters for each model can be viewed:
+
+**Elastic net**
+<div class="fold o s">
+```{r, results='hold'}
+# Print elastic net model summary
+ensemble.models$glmnet
+
+# Elastic net cross-validation results
+glmnet.alpha <- ensemble.models$glmnet$results$alpha
+glmnet.rmse <- ensemble.models$glmnet$results$RMSE
+glmnet.mae <- ensemble.models$glmnet$results$MAE
+glmnet.lambda <- ensemble.models$glmnet$results$lambda
+
+# Plot the RMSE and MAE in a facet plot using facet_wrap
+p.glmnet.cv <- data.frame(alpha=glmnet.alpha, RMSE=glmnet.rmse, MAE=glmnet.mae, lambda=glmnet.lambda) %>%
+  mutate(alpha=as.character(alpha)) %>%
+  pivot_longer(cols=c(RMSE, MAE), names_to="Metric", values_to="Value") %>%
+  mutate(Metric = ifelse(Metric=="MAE", "Mean Absolute Error", "Root-Mean Square Error")) %>%
+  # One line per value of alpha
+  ggplot(data=., mapping=aes(x=lambda, y=Value, color=alpha)) +
+  # Facet the MAE and RMSE in separate plots
+  facet_wrap(Metric ~ ., scales="free") +
+  geom_point() +
+  geom_line(aes(group=alpha)) +
+  theme_minimal() +
+  ggtitle("Elastic Net Regression Cross-Validated Results") +
+  theme(plot.title=element_text(hjust=0.5),
+        axis.title=element_blank(),
+        panel.spacing = unit(2, "lines"))
+
+# Convert to interactive plotly
+ggplotly(p.glmnet.cv) %>% 
+  layout(yaxis = list(title = "MAE", 
+                      titlefont = list(size = 12)),
+         xaxis = list(title = "lambda", 
+                      titlefont = list(size = 12)),
+         yaxis2 = list(title = "RMSE", 
+                       titlefont = list(size = 12)),
+         xaxis2 = list(title = "lambda", 
+                       titlefont = list(size = 12)),
+         autosize = F, width = 900, height = 400)
+
+# Clear workspace
+rm(glmnet.alpha, glmnet.rmse, glmnet.lambda, glmnet.mae, p.glmnet.cv, train.index)
+```
+</div>
+
+&nbsp;
+
+**kNN**
+
+<div class="fold o s">
+```{r, results='hold'}
+# Print kNN model summary
+ensemble.models$knn
+
+# kNN cross-validation plot
+knn.k <- ensemble.models$knn$results$k
+knn.rmse <- ensemble.models$knn$results$RMSE
+knn.mae <- ensemble.models$knn$results$MAE
+
+# Plot the RMSE and MAE in a facet plot using facet_wrap
+p.knn.cv <- data.frame(k=knn.k, RMSE=knn.rmse, MAE=knn.mae) %>%
+  pivot_longer(cols=c(RMSE, MAE), names_to="Metric", values_to="Value") %>%
+  mutate(Metric = ifelse(Metric=="MAE", "Mean Absolute Error", "Root-Mean Square Error")) %>%
+  # One line per value of alpha
+  ggplot(data=., mapping=aes(x=k, y=Value, color=Metric)) +
+  # Facet the MAE and RMSE in separate plots
+  facet_wrap(Metric ~ ., scales="free") +
+  geom_point() +
+  geom_line() +
+  theme_minimal() +
+  ggtitle("kNN Regression Cross-Validated Results") +
+  theme(plot.title=element_text(hjust=0.5),
+        axis.title=element_blank(),
+        panel.spacing = unit(2, "lines"))
+
+# Convert to interactive plotly
+ggplotly(p.knn.cv) %>% 
+  layout(yaxis = list(title = "MAE", 
+                      titlefont = list(size = 12)),
+         xaxis = list(title = "k", 
+                      titlefont = list(size = 12)),
+         yaxis2 = list(title = "RMSE", 
+                       titlefont = list(size = 12)),
+         xaxis2 = list(title = "k", 
+                       titlefont = list(size = 12)),
+         autosize = F, width = 900, height = 400)
+
+rm(knn.rmse, knn.k, p.knn.cv, knn.mae)
+```
+</div>
+
+&nbsp;
+
+**Neural Network**
+
+<div class="fold o s">
+
+```{r, results='hold'}
+# Print neural network model summary
+ensemble.models$nnet
+
+# Neural network cross-validation plot
+n.neurons <- ensemble.models$nnet$results$size
+nnet.rmse <- ensemble.models$nnet$results$RMSE
+nnet.mae <- ensemble.models$nnet$results$MAE
+nnet.weight <- ensemble.models$nnet$results$decay
+
+# Plot the RMSE and MAE in a facet plot using facet_wrap
+p.nnet.cv <- data.frame(n.neurons, RMSE=nnet.rmse, MAE=nnet.mae, decay=nnet.weight) %>%
+  mutate(decay=as.character(decay)) %>%
+  pivot_longer(cols=c(RMSE, MAE), names_to="Metric", values_to="Value") %>%
+  mutate(Metric = ifelse(Metric=="MAE", "Mean Absolute Error", "Root-Mean Square Error")) %>%
+  # One line per value of alpha
+  ggplot(data=., mapping=aes(x=n.neurons, y=Value, color=decay)) +
+  # Facet the MAE and RMSE in separate plots
+  facet_wrap(Metric ~ ., scales="free") +
+  geom_point() +
+  geom_line(aes(group=decay)) +
+  theme_minimal() +
+  ggtitle("Neural Network Regression Cross-Validated Results") +
+  theme(plot.title=element_text(hjust=0.5),
+        axis.title=element_blank(),
+        panel.spacing = unit(2, "lines"))
+
+# Convert to interactive plotly
+ggplotly(p.nnet.cv) %>% 
+  layout(yaxis = list(title = "MAE", 
+                      titlefont = list(size = 12)),
+         xaxis = list(title = "# Neurons in Hidden Layer", 
+                      titlefont = list(size = 12)),
+         yaxis2 = list(title = "RMSE", 
+                       titlefont = list(size = 12)),
+         xaxis2 = list(title = "# Neurons in Hidden Layer", 
+                       titlefont = list(size = 12)),
+         autosize = F, width = 900, height = 400)
+
+rm(n.neurons, nnet.rmse, nnet.mae, nnet.weight, p.nnet.cv)
+```
+</div>
+
+The optimal neural network includes three neurons in the hidden layer, each of which receive input from all 33 input nodes (31 ROIs, baseline age, and sex) and output onto the final prediction node. Here's a graphical representation of this `caret`-trained neural network:
+```{r, out.width="120%", out.height="100%"}
+par(mar = numeric(4))
+plotnet(ensemble.models$nnet, cex_val=0.8, pad_x=0.6, pos_col="firebrick3", neg_col="dodgerblue4",
+        circle_col="lightslategray", bord_col="lightslategray", alpha_val=0.4)
+```
+
+
+**Random Forest**
+
+<div class="fold o s">
+
+```{r, results='hold'}
+# Print random forest model summary
+ensemble.models$ranger
+
+# Random forest cross-validation plot
+splitrule <- ensemble.models$ranger$results$splitrule
+numpred <- ensemble.models$ranger$results$mtry
+rf.rmse <- ensemble.models$ranger$results$RMSE
+rf.mae <- ensemble.models$ranger$results$MAE
+
+# Plot the RMSE and MAE in a facet plot using facet_wrap
+p.rf.cv <- data.frame(splitrule, RMSE=rf.rmse, MAE=rf.mae, numpred) %>%
+  pivot_longer(cols=c(RMSE, MAE), names_to="Metric", values_to="Value") %>%
+  mutate(Metric = ifelse(Metric=="MAE", "Mean Absolute Error", "Root-Mean Square Error")) %>%
+  # One line per value of alpha
+  ggplot(data=., mapping=aes(x=numpred, y=Value, color=splitrule)) +
+  # Facet the MAE and RMSE in separate plots
+  facet_wrap(Metric ~ ., scales="free") +
+  geom_point() +
+  geom_line(aes(group=splitrule)) +
+  theme_minimal() +
+  ggtitle("Random Forest Regression Cross-Validated Results") +
+  theme(plot.title=element_text(hjust=0.5),
+        axis.title=element_blank(),
+        panel.spacing = unit(2, "lines"))
+
+# Convert to interactive plotly
+ggplotly(p.rf.cv) %>% 
+  layout(yaxis = list(title = "MAE", 
+                      titlefont = list(size = 12)),
+         xaxis = list(title = "# Predictors in Decision Node", 
+                      titlefont = list(size = 12)),
+         yaxis2 = list(title = "RMSE", 
+                       titlefont = list(size = 12)),
+         xaxis2 = list(title = "# Predictors in Decision Node", 
+                       titlefont = list(size = 12)),
+         autosize = F, width = 900, height = 400)
+
+rm(splitrule, numpred, rf.rmse, rf.mae, p.rf.cv)
+```
+</div>
+
+
+These four models can be resampled and aggregated using the `resamples` function:
+
+<div class="fold s">
+
+```{r}
+# Resample the performance of this ensemble and report summary metrics for MAE, RMSE, and R2
+set.seed(127)
+ensemble.results <- resamples(ensemble.models)
+summary(ensemble.results)
+```
+</div> 
+
+Looking at the mean RMSE across sample iterations, the elastic net (`glmnet`) has the lowest RMSE; by contrast, the neural network has the highest RMSE. This reports the $R^2$ values as well, though as the models are non-linear regressions (aside from elastic net), this isn't a valid comparison metric in this instance.
+
+It's also useful to look at the regression correlation between these component models:
+
+<div class="fold s">
+
+```{r, results='hold'}
+cat("\nRoot-Mean Square Error Correlation\n")
+# Calculate model RMSE correlations
+modelCor(ensemble.results, metric="RMSE")
+cat("\n\nMean Absolute Error Correlation\n")
+# Calculate model MAE correlations
+modelCor(ensemble.results, metric="MAE")
+```
+
+</div>
+
+kNN and random forest show very high error correlation (R>0.98). The other models also show relatively high error correlation; this is not ideal, since ensemble models are designed to counterbalance individual model error. The error can be visualized with confidence intervals using the `dotplot` function:
+
+```{r, out.width="800px", out.height="500px"}
+# Plot the four models' RMSE values
+p.rmse <- as.ggplot(dotplot(ensemble.results, metric="RMSE"))
+# Plot the four models' MAE values
+p.mae <- as.ggplot(dotplot(ensemble.results, metric="MAE")) 
+# Combine plots side-by-side
+grid.arrange(p.rmse, p.mae, ncol=2)
+```
+
+These four models show comparable RMSE confidence intervals. The elastic net regression model shows the lowest estimated RMSE, while the neural network shows the highest estimated RMSE. kNN showed the lowest MAE, while the neural network also showed the highest MAE. Despite the large error correlation between the models, I'll move forward to see if ensembling strengthens the overall predictions for the change in CDR-Sum of Boxes over time.
+
+
+Starting with the basic `caretEnsemble` function, which by default employs a generalized linear model to combine the component models:
+```{r}
+set.seed(127)
+# Set trainControl --> 10-fold CV with parallel processing
+ensemble.control <- trainControl(method="repeatedcv", number=10, allowParallel = T)
+
+# Create stacked ensemble, optimizing for RMSE
+stacked.ensemble.glm <- caretEnsemble(ensemble.models, metric="RMSE", trControl=ensemble.control)
+summary(stacked.ensemble.glm)
+```
+
+The elastic net model (`glmnet`) shows the lowest RMSE of the four models. `caret` offers a function `autoplot` to create in-depth diagnostic plots for ensemble models:
+
+```{r}
+autoplot(stacked.ensemble.glm)
+```
+
+The top left graph shows the mean cross-validated RMSE per model, with the bars denoting RMSE standard deviation. The elastic net model shows the lowest RMSE of the four, and its RMSE is even lower than that of the full ensemble model (indicated by the red dashed line). The middle left plot shows the relative weight given to each model in a linear combination; the elastic net has the highest weighting, followed by ranger and neural network; kNN actually has a negative weight. 
+
+Stacked ensembles can also be constructed using `caretStack`, which applies user-defined linear combinations of each constituent model. I'll try one using a random forest combination of models and one using an elastic net combination of models.
+
+
+```{r}
+set.seed(127)
+# Create random forest-combined stacked ensemble
+stacked.ensemble.rf <- caretStack(ensemble.models, method = "rf", metric = "RMSE", trControl = ensemble.control)
+# Create elastic net-combined stacked ensemble
+stacked.ensemble.glmnet <- caretStack(ensemble.models, method="glmnet", metric="RMSE", trControl = ensemble.control)
+```
+
+The summary statistics for each model can be displayed:
+<div class="fold s">
+```{r, results='hold'}
+cat("\nStacked ensemble, generalized linear model:\n") 
+stacked.ensemble.glm 
+cat("\n\nStacked ensemble, random forest:\n")
+stacked.ensemble.rf
+cat("\n\nStacked ensemble, elastic net:\n")
+stacked.ensemble.glmnet
+```
+</div>
+
+Each of these four models show pretty comparable RMSE and MAE values. The RMSE is slighly lower for the glmnet-combined stack ensemble model, though this difference may not be significant and may not translate to the out-of-sample data.
+
+These three ensemble models (glm-, rf-, and glmnet-combined) will be used to predict annual change in CDR-Sum of Boxes in the same test dataset. Note: since the models were created with center and scale preprocessing specified, the test data does not need to be manually pre-processed.
+
+Model predictions using **training** data:
+
+<div class="fold s">
+```{r, results='hold'}
+# Predict based on training data for the four individual models
+# And the three stacked ensemble models
+glmnet.train <- predict.train(ensemble.models$glmnet)
+knn.train <- predict.train(ensemble.models$knn)
+nnet.train <- predict.train(ensemble.models$nnet)
+rf.train <- predict(ensemble.models$ranger)
+ensemble.glm.train <- predict(stacked.ensemble.glm)
+ensemble.glmnet.train <- predict(stacked.ensemble.glmnet)
+ensemble.rf.train <- predict(stacked.ensemble.rf)
+real.train <- original.train$CDRSB
+
+# Combine these predictions into a dataframe for easier viewing
+train.df <- do.call(cbind, list(elastic.net=glmnet.train, knn=knn.train, neural.net=nnet.train, random.forest=rf.train,
+                                ensemble.glm=ensemble.glm.train, ensemble.glmnet=ensemble.glmnet.train, 
+                                ensemble.rf=ensemble.rf.train, real.CDR=real.train)) %>% as.data.frame()
+
+datatable(train.df %>% mutate_if(is.numeric, function(x) round(x,4)) %>% select(real.CDR, elastic.net:ensemble.rf))
+```
+</div>
+
+
+Model predictions using **test** data:
+
+<div class="fold s">
+```{r, results='hold'}
+# Predict based on UNSEEN test data for the four individual models
+# And the three stacked ensemble models
+real.test <- original.test$CDRSB  
+glmnet.test <- predict.train(ensemble.models$glmnet, newdata=original.test)
+knn.test <- predict.train(ensemble.models$knn, newdata=original.test)
+nnet.test <- predict.train(ensemble.models$nnet, newdata=original.test)
+rf.test <- predict.train(ensemble.models$ranger, newdata=original.test)
+ensemble.glm.test <- predict(stacked.ensemble.glm, newdata=original.test)
+ensemble.glmnet.test <- predict(stacked.ensemble.glmnet, newdata=original.test)
+ensemble.rf.test <- predict(stacked.ensemble.rf, newdata=original.test)
+
+# Combine these predictions into a dataframe for easier viewing
+test.df <- do.call(cbind, list(real.CDR=real.test, elastic.net=glmnet.test, knn=knn.test, neural.net=nnet.test, random.forest=rf.test,
+                               ensemble.glm=ensemble.glm.test, ensemble.glmnet=ensemble.glmnet.test, ensemble.rf=ensemble.rf.test)) %>% as.data.frame()
+
+datatable(test.df %>% mutate_if(is.numeric, function(x) round(x,4)))
+```
+</div>
+
+I want to compare these three ensemble models in terms of how their predictions relate to the actual CDR-SoB values in the training and testing data. I also want to compare these results with those obtained with the individual component models to see if constructing the ensemble confers a predictive advantage. To quantify the association between real CDR-SoB values and model-predicted, I will use the $R^2$ and RMSE values through the `R2` and `RMSE` functions from `caret`:
+
+<div class="fold s">
+```{r, results='hold'}
+# Calculate the RMSE between real vs. predicted CDR-SoB values for training data
+# Combine into dataframe for easier viewing
+rmse.train <- data.frame(ensemble.glmnet=RMSE(ensemble.glmnet.train, real.train),
+                         ensemble.glm=RMSE(ensemble.glm.train, real.train),
+                         ensemble.rf=RMSE(ensemble.rf.train, real.train),
+                         elastic.net=RMSE(glmnet.train, real.train),
+                         knn=RMSE(knn.train, real.train),
+                         neural.net=RMSE(nnet.train, real.train),
+                         random.forest=RMSE(rf.train, real.train),
+                         Metric="Train_RMSE")
+
+# Calculate the RMSE between real vs. predicted CDR-SoB values for unseen test data
+# Combine into dataframe for easier viewing
+rmse.test <- data.frame(ensemble.glmnet=RMSE(ensemble.glmnet.test, real.test),
+                        ensemble.glm=RMSE(ensemble.glm.test, real.test),
+                        ensemble.rf=RMSE(ensemble.rf.test, real.test),
+                        elastic.net=RMSE(glmnet.test, real.test),
+                        knn=RMSE(knn.test, real.test),
+                        neural.net=RMSE(nnet.test, real.test),
+                        random.forest=RMSE(rf.test, real.test),
+                        Metric="Test_RMSE")
+
+# Calculate the R-squared between real vs. predicted CDR-SoB values for training data
+# Combine into dataframe for easier viewing
+r2.train <- data.frame(ensemble.glmnet=R2(ensemble.glmnet.train, real.train),
+                       ensemble.glm=R2(ensemble.glm.train, real.train),
+                       ensemble.rf=R2(ensemble.rf.train, real.train),
+                       elastic.net=R2(glmnet.train, real.train),
+                       knn=R2(knn.train, real.train),
+                       neural.net=R2(nnet.train, real.train),
+                       random.forest=R2(rf.train, real.train),
+                       Metric="Train_R2")
+
+# Calculate the R-squared between real vs. predicted CDR-SoB values for unseen test data
+# Combine into dataframe for easier viewing
+r2.test <- data.frame(ensemble.glmnet=R2(ensemble.glmnet.test, real.test),
+                      ensemble.glm=R2(ensemble.glm.test, real.test),
+                      ensemble.rf=R2(ensemble.rf.test, real.test),
+                      elastic.net=R2(glmnet.test, real.test),
+                      knn=R2(knn.test, real.test),
+                      neural.net=R2(nnet.test, real.test),
+                      random.forest=R2(rf.test, real.test),
+                      Metric="Test_R2")
+
+# Combine all four prediction dataframes into one table to compare and contrast
+# RMSE and R-squared across models
+do.call(plyr::rbind.fill, list(rmse.train, rmse.test, r2.train, r2.test)) %>%
+  pivot_longer(cols=c(-Metric), names_to="Model", values_to="Value") %>%
+  mutate(Metric = str_replace(Metric, "_", " ")) %>%
+  pivot_wider(id_cols="Model", names_from="Metric", values_from="Value") %>%
+  mutate_if(is.numeric, function(x) round(x,4)) %>%
+  kable(., booktabs=T) %>% kable_styling(full_width=F)
+```
+
+</div>
+
+I will also use scatterplot visualizations for comparison:
+
+<div class="fold s">
+```{r, results='hold'}
+# Create training data ggplot to be converted to interactive plotly plot
+p.train <- train.df %>%
+  # Reshape to facet on model
+  pivot_longer(cols=c(-real.CDR), names_to="Model", values_to="Prediction") %>%
+  mutate(Model=factor(Model, levels=c("ensemble.glmnet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
+  ggplot(data=., mapping=aes(x=real.CDR, y= Prediction, color=Model)) +
+  geom_point(alpha=0.3) +
+  facet_grid(.~Model, scales="free") +
+  ggtitle("Model Predictions for CDR Sum of Boxes Annual Change in Training Data") +
+  theme_minimal() +
+  theme(legend.position="none") +
+  ylab("Predicted CDR-SoB Change") +
+  xlab("Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+
+# Create test data ggplot to be converted to interactive plotly plot
+p.test <- test.df  %>%
+  # Reshape to facet on model
+  pivot_longer(cols=c(-real.CDR), names_to="Model", values_to="Prediction") %>%
+  mutate(Model=factor(Model, levels=c("ensemble.glmnet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
+  ggplot(data=., mapping=aes(x=real.CDR, y= Prediction, color=Model)) +
+  geom_point(alpha=0.3) +
+  facet_grid(.~Model, scales="free") +
+  ggtitle("Model Predictions for CDR Sum of Boxes Annual Change in Test Data") +
+  theme_minimal() +
+  theme(legend.position="none") +
+  ylab("Predicted CDR-SoB Change") +
+  xlab("Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+
+# Use ggplotly to create interactive HTML plots
+ggplotly(p.train, height=350, width=900)
+ggplotly(p.test, height=350, width=900) 
+```
+</div>
+
+The predicted CDR-SoB change values from the random forest individual model were very similar to the actual observed values, yielding an $R^2$ of 0.94. However, comparing this with the $R^2$ of 0.16 in the test dataset suggests that the model may be overfit to the training data and does not perform well outside of that dataset. The same can be said of the other models, all of which exhibited substantially 
+
+
+<div class="fold s">
+```{r}
+# Compile RMSE and R2 results comparing real vs. predicted values for ensembles and component models
+overall.ensemble.results <- do.call(plyr::rbind.fill, list(rmse.train, rmse.test, r2.train, r2.test)) %>%
+  # Reshape to facet on metric -- i.e. RMSE or R2
+  pivot_longer(cols=c(-Metric), names_to="Model", values_to="Value") %>%
+  separate(Metric, into=c("Data", "Metric"), sep="_")
+
+p.ensemble.r2.rmse <- overall.ensemble.results %>%
+  mutate(Metric = ifelse(Metric=="RMSE", "Real vs. Predicted CDR-SoB RMSE", "Real vs. Predicted CDR-SoB R2")) %>%
+  mutate(Data=factor(Data, levels=c("Train", "Test")),
+         Model=factor(Model, levels=c("ensemble.glmnet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
+  ggplot(data=., mapping=aes(x=Data, y=Value, color=Model, group=Model)) +
+  geom_point() +
+  geom_line() +
+  theme_minimal() +
+  facet_wrap(Metric~., scales="free", nrow=1) +
+  theme(strip.text=element_text(size=12, face="bold"),
+        axis.title=element_blank())
+
+# Convert to interactive plotly plot, rename x/y axis titles
+ggplotly(p.ensemble.r2.rmse) %>% 
+  layout(yaxis = list(title = "R2", 
+                      titlefont = list(size = 12)),
+         xaxis = list(title = "Data Subset", 
+                      titlefont = list(size = 12)),
+         yaxis2 = list(title = "RMSE", 
+                       titlefont = list(size = 12)),
+         xaxis2 = list(title = "Data Subset", 
+                       titlefont = list(size = 12)),
+         autosize = F, width = 900, height = 400)
+```
+</div>
+
+
+Lastly, I will append the original dataset and ensemble model developed herein to an .RData file for use in Model Evaluation. First, since all of the objects have the same names across the four modeling pages, I will re-name model objects and datasets to be original data-specific:
+```{r}
+# Rename relevant objects to have original data-specific names
+models.for.ensemble.OG <- ensemble.models
+model.metrics.OG <- overall.ensemble.results
+stacked.ensemble.glm.OG <- stacked.ensemble.glm
+stacked.ensemble.glmnet.OG <- stacked.ensemble.glmnet
+stacked.ensemble.rf.OG <- stacked.ensemble.rf
+
+# If RData file already exists, use resave from cgwtools to append these objects
+if (file.exists("../Model_Results.RData")) {
+  cgwtools::resave(models.for.ensemble.OG, model.metrics.OG,
+                   stacked.ensemble.glm.OG, stacked.ensemble.glmnet.OG,
+                   stacked.ensemble.rf.OG, original.train, original.test, 
+                   file="../Model_Results.RData")
+} else {
+  # If the RData file does not yet exist, create it here
+  save(models.for.ensemble.OG, model.metrics.OG,
+       stacked.ensemble.glm.OG, stacked.ensemble.glmnet.OG,
+       stacked.ensemble.rf.OG, original.train, original.test,
+       file="../Model_Results.RData")
+}
+
+```
+
+

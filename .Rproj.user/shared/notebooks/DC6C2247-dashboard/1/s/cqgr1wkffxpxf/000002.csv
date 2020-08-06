@@ -1,166 +1,0 @@
-"0","devtools::install_github(""johannesbjork/LaCroixColoR"")
-"
-"2","Downloading GitHub repo johannesbjork/LaCroixColoR@HEAD
-"
-"2","Installing 3 packages: sysfonts, showtextdb, showtext
-"
-"2","Installing packages into ‘C:/Users/annie/Documents/R/win-library/4.0’
-(as ‘lib’ is unspecified)
-"
-"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.0/sysfonts_0.8.1.zip'
-"
-"2","Content type 'application/zip'"
-"2"," length 1748243 bytes (1.7 MB)
-"
-"2","downloaded 1.7 MB
-
-"
-"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.0/showtextdb_3.0.zip'
-"
-"2","Content type 'application/zip'"
-"2"," length 2012274 bytes (1.9 MB)
-"
-"2","downloaded 1.9 MB
-
-"
-"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.0/showtext_0.8-1.zip'
-"
-"2","Content type 'application/zip'"
-"2"," length 354994 bytes (346 KB)
-"
-"2","downloaded 346 KB
-
-"
-"1","package â€˜sysfontsâ€™ successfully unpacked and MD5 sums checked
-"
-"1","package â€˜showtextdbâ€™ successfully unpacked and MD5 sums checked
-"
-"1","package â€˜showtextâ€™ successfully unpacked and MD5 sums checked
-"
-"1","
-"
-"1",""
-"1","The downloaded binary packages are in
-	C:\Users\annie\AppData\Local\Temp\RtmpgTrLgx\downloaded_packages"
-"1",""
-"1","
-"
-"1","  "
-"1","  "
-"1",""
-"1",""
-"1","  "
-"1","[32mâˆš[39m  [38;5;247mchecking for file 'C:\Users\annie\AppData\Local\Temp\RtmpgTrLgx\remotes7848234559bc\johannesbjork-LaCroixColoR-57e6c09/DESCRIPTION'[39m[36m[36m (481ms)[36m[39m"
-"1",""
-"1","
-"
-"1",""
-"1",""
-"1",""
-"1","  "
-"1","  "
-"1",""
-"1",""
-"1","  "
-"1","[38;5;247m-[39m[38;5;247m  [39m[38;5;247mpreparing 'LaCroixColoR':[39m[36m[39m"
-"1",""
-"1","
-"
-"1","   checking DESCRIPTION meta-information ..."
-"1",""
-"1",""
-"1","  "
-"1","   checking DESCRIPTION meta-information ... "
-"1",""
-"1",""
-"1","  "
-"1","[32mâˆš[39m  [38;5;247mchecking DESCRIPTION meta-information[39m[36m[39m"
-"1",""
-"1","
-"
-"1",""
-"1",""
-"1",""
-"1","  "
-"1","  "
-"1",""
-"1",""
-"1","  "
-"1","[38;5;247m-[39m[38;5;247m  [39m[38;5;247mchecking for LF line-endings in source and make files and shell scripts[39m[36m[39m"
-"1",""
-"1","
-"
-"1",""
-"1",""
-"1",""
-"1","  "
-"1","[38;5;247m-[39m[38;5;247m  [39m[38;5;247mchecking for empty or unneeded directories[39m[36m[39m"
-"1",""
-"1","
-"
-"1",""
-"1",""
-"1",""
-"1","  "
-"1","[38;5;247m-[39m[38;5;247m  [39m[38;5;247mbuilding 'LaCroixColoR_0.1.0.tar.gz'[39m[36m[39m"
-"1",""
-"1","
-"
-"1",""
-"1",""
-"1",""
-"1","  "
-"1","   "
-"1",""
-"1","
-"
-"1",""
-"1",""
-"1",""
-"2","Installing package into ‘C:/Users/annie/Documents/R/win-library/4.0’
-(as ‘lib’ is unspecified)
-"
-"1","* installing *source* package 'LaCroixColoR' ...
-"
-"1","** using staged installation
-"
-"1","** R
-"
-"1","** data
-"
-"1","*** moving datasets to lazyload DB
-"
-"1","** byte-compile and prepare package for lazy loading
-"
-"1","** help
-"
-"1","*** installing help indices
-"
-"1","  converting help for package 'LaCroixColoR'
-"
-"1","    finding HTML links ... done
-"
-"1","    lacroix_palette                         html  
-"
-"1","    lacroix_palettes                        html  
-"
-"1","    print.palette                           html  
-"
-"1","** building package indices
-"
-"1","** testing if installed package can be loaded from temporary location
-"
-"1","*** arch - i386
-"
-"1","*** arch - x64
-"
-"1","** testing if installed package can be loaded from final location
-"
-"1","*** arch - i386
-"
-"1","*** arch - x64
-"
-"1","** testing if installed package keeps a record of temporary installation path
-"
-"1","* DONE (LaCroixColoR)
-"

@@ -1,0 +1,723 @@
+---
+title: "Data Understanding"
+output: 
+  html_document:
+    keep_md: true
+    css: "../my_style.css"
+---
+
+<html>
+<style>
+details > summary {
+padding: 4px;
+font-size: 16px;
+font-weight: bold;
+width: 600px;
+border: none;
+cursor: pointer;
+}
+
+ul {
+background-color: #eeeeee;
+padding: 4px;
+margin: 4;
+box-shadow: 1px 1px 2px #bbbbbb;
+}
+
+details > p {
+background-color: #eeeeee;
+padding: 4px;
+margin: 0;
+box-shadow: 1px 1px 2px #bbbbbb;
+}
+</style>
+<body>
+
+
+<script src="../hideOutput.js"></script>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=F, message=F)
+```
+
+[Project Home](https://anniegbryant.github.io/DA5030_Final_Project/)
+
+Three datasets in CSV format were downloaded from the Alzheimer's Disease Neuroimaging Initiative (ADNI) Study Data repository. ADNI data is freely accessible to all registered users. Please see [my Acknowledgments page](https://anniegbryant.github.io/DA5030_Final_Project/Pages/Acknowledgments.html) for more information about ADNI and its contributors.
+
+<details>
+<summary>About the Tau-PET Data</summary>
+
+Longitudinal **18F-AV-1451 tau-PET data** was downloaded from Study Data/Imaging/PET Image Analysis/UC Berkeley - AV1451 Analysis [ADNI2,3] (version: 5/12/2020). This CSV file contains 1,121 rows and 241 columns. 
+
+Each row represents one tau-PET scan; some subjects had repeated scans separated by approximately one year, while other subjects had only one scan. Columns include subject information including anonymized subject ID, visit code, and PET exam date. The other columns encode regional volume and tau-PET uptake. Specifically, there are 123 distinct cortical and subcortical regions of interest (ROIs), each of which has a volume field (in mm^3) and a tau-PET uptake field, called the Standardized Uptake Value Ratio (SUVR). 
+
+```{r, echo=F, out.width = "300px"}
+knitr::include_graphics("../Images/cerebellum.png")
+```
+The SUVR value is normalized to the tau-PET uptake in the inferior cerebellum gray matter (highlighted in orange above), a commonly-used region for tau normalization given the lack of inferior cerebellar tau pathology in Alzheimer's Disease. 
+
+**create figure about tauPET/freesurfer/rois**
+
+These 123 ROIs were delineated by first co-registering the tau-PET image to a high-resolution structural T1-weighted MPRAGE acquired in the same imaging session, and then applying FreeSurfer (v5.3) for automated regional segmentation and parcellation. Furthermore, to mitigate issues with lower voxel resolution in PET imaging, partial volume correction was applied to use probabilistic tissue segmentation maps to refine individual ROIs. Note: these PET processing steps were all performed by Susan Landau, Deniz Korman, and William Jagust at the Helen Wills Neuroscience Institute, UC Berkeley and Lawrence Berkeley National Laboratory.
+
+</details>
+
+
+<details>
+<summary>About the cognitive data</summary>
+
+Longitudinal cognitive data was downloaded from "Study Data/Study Info/Key ADNI tables merged into one table". This CSV file contains 14,816 rows and 113 columns. This includes many subjects with multiple follow-up visits. Columns include (anonymized) subject demographic information such as age, sex, race, and marriage status. 
+
+This project will explore two target features in this dataset: 
+
+* Clinical Dementia Rating (CDR) Sum of Boxes
+* Cognitive diagnosis  
+
+The CDR scale was initially developed in 1982 at the Washington University as a metric of clinical dementia progression (Hughes et al., 1982). This cognitive test measures impairment in six cognitive domains: memory, orientation, judgment and problem solving, community affairs, home and hobbies, and personal care (Morris 1991). Each of these is scored on a five-point scale as follows: 
+
+* 0 = no impairment
+* 0.5 = questionable
+* 1 = mild dementia
+* 2 = moderate dementia 
+* 3 = severe dementia  
+
+The global score is most heavily influenced by the memory score, though there is an established decision tree-like algorithm for how to calculate the global score. By contrast, the CDR Sum of Boxes reflects the sum of scores for each of the six domains, with an overall range of 0 (no impairment) to 18 (severe impairment). The CDR Sum of Boxes is an extension upon the CDR global score, offering a more detailed quantitative score. This metric reportedly improves precision in longitudinal cognitive tracking, particularly in cases of mild dementia (O'Bryant et al., 2008) Of note, the CDR assessment shows high inter-rater reliability, which is important given the inter-site nature of the ADNI cohort (Morris 1991). 
+
+**Sources** 
+
+Hughes, C. P., Berg, L., Danziger, W., Coben, L. A., & Martin, R. L. (1982). A new clinical scale for the staging of dementia. The British journal of psychiatry, 140(6), 566-572.  
+
+Morris, J. C. (1991). The clinical dementia rating (cdr): Current version and. Young, 41, 1588-1592.  
+
+O’Bryant, S. E., Waring, S. C., Cullum, C. M., Hall, J., Lacritz, L., Massman, P. J., ... & Doody, R. (2008). Staging dementia using Clinical Dementia Rating Scale Sum of Boxes scores: a Texas Alzheimer's research consortium study. Archives of neurology, 65(8), 1091-1095.
+
+</details> 
+
+&nbsp; 
+&nbsp; 
+
+### Tau-PET Data Exploration
+
+Packages used to create the below figures:
+
+```{r}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(DMwR)
+library(plotly)
+library(lubridate)
+library(forcats)
+library(readxl)
+library(ggsignif)
+library(DT)
+library(ggpointdensity)
+library(rstatix)
+```
+
+
+Load partial volume corrected regional tau-PET data, as downloaded from ADNI:
+```{r}
+tau.df <- read.csv("../../ADNI_Data/Raw_Data/UCBERKELEYAV1451_PVC_05_12_20.csv")
+```
+
+
+<div class="fold o">
+```{r}
+str(tau.df)
+```
+
+</div>
+
+
+18F-AV-1451 is a relatively recent PET tracer, and was only incorporated into the ADNI-3 pipeline beginning in 2016. I am curious about the temporal distribution of the FreeSurfer-analyzed scans here:
+
+<div class="fold s">
+```{r}
+tau.df %>%
+  select(RID, EXAMDATE) %>%
+  mutate(Scan_Date = as.Date(EXAMDATE, format="%m/%d/%Y")) %>%
+  plot_ly(x=~Scan_Date, type="histogram",
+          marker = list(color = "lightsteelblue",
+                        line = list(color = "lightslategray",
+                                    width = 1.5))) %>%
+  layout(title = 'Tau-PET Scan Date Distribution',
+         xaxis = list(title = 'Scan Date',
+                      zeroline = TRUE),
+         yaxis = list(title = 'Number of PET Scans')) 
+```
+</div>
+
+Even though ADNI3 officially began in 2016, most scans were acquired from mid-2017 to present day. This doesn't affect this analysis since the same protocol has been observed.
+
+
+Since this project will explore tau-PET measurements over time, I will be refining the dataset to only subjects with multiple tau-PET scans. Here's the overall distribution of number of longitudinal scans by subject: 
+
+<div class="fold s">
+```{r, results='hold'}
+p_num_long <- tau.df %>%
+  mutate(RID=as.character(RID)) %>%
+  group_by(RID) %>%
+  summarise(n_scans=n()) %>%
+  ggplot(., aes(x=fct_reorder(RID, n_scans, .desc=T), y=n_scans)) +
+  geom_bar(stat="identity", aes(fill=n_scans, color=n_scans)) +
+  labs(fill="Count", color="Count") +
+  ggtitle("Number of Longitudinal PET Scans per Subject") +
+  ylab("Number of PET Scans") +
+  xlab("Subject") +
+  theme(axis.text.x=element_blank(),
+        plot.title=element_text(hjust=0.5)) 
+
+ggplotly(p_num_long)
+rm(p_num_long)
+```
+</div>
+
+The majority of subjects only had one tau-PET scan; given the longitudinal nature of this project, such subjects will eventually be omitted from analysis. On that note, it's important to know exactly how many subjects *do* have at least two tau-PET scans:
+
+<div class="fold s">
+```{r, results='asis'}
+num_scans <- tau.df %>%
+  mutate(RID=as.character(RID)) %>%
+  group_by(RID) %>%
+  summarise(n_scans=n()) %>%
+  filter(n_scans>=2) %>%
+  ungroup() %>%
+  summarise(num_subjects=n(),
+            total_scans=sum(n_scans))
+cat("Number of subjects with at least two scans: **", 
+    num_scans$num_subjects, "**\n", 
+    "\nNumber of total PET scans: **", 
+    num_scans$total_scans, "**\n", sep="")
+```
+</div>
+
+So, we have 249 subjects with two or more scans. Another important consideration is the length of time between each consecutive scan. I will eventually normalize changes in tau-PET to number of years passed to yield an annual rate of change, but it's good to know what that time interval is:
+
+
+<div class="fold s">
+
+```{r, results='hold'}
+p_pet_interval <- tau.df %>%
+  select(RID, EXAMDATE) %>%
+  mutate(Scan_Date = as.Date(EXAMDATE, format="%m/%d/%Y")) %>%
+  group_by(RID) %>%
+  mutate(n_scans=n()) %>%
+  filter(n_scans>=2) %>%
+  mutate(Years_between_Scans = 
+           as.numeric((Scan_Date - lag(Scan_Date, 
+                                       default = Scan_Date[1]))/365)) %>%
+  filter(Years_between_Scans>0) %>%
+  ggplot(., aes(x=Years_between_Scans)) +
+  geom_histogram(stat="count", color="lightslategray") +
+  ggtitle("Years in between Tau-PET Scans per Subject") +
+  ylab("Frequency") +
+  xlab("# Years between two consecutive scans for a subject") +
+  theme_minimal() +
+  theme(plot.title=element_text(hjust=0.5)) 
+ggplotly(p_pet_interval)
+rm(p_pet_interval)
+```
+</div>
+
+There's a cluster of scans around the one-year mark. Presumably, ADNI3 participants are enrolled in an annual tau-PET plan, though in some cases scans aren't at precise yearly intervals.  
+
+I'll check if there are any missing data points for tau-PET SUVR values for any of the FreeSurfer-derived cortical or subcortical regions of interest (ROIs). Note: this is filtered to show only subjects with at least two scans:
+
+<div class="fold s">
+```{r}
+tau.df %>%
+  select(-VISCODE, -VISCODE2, -update_stamp) %>%
+  group_by(RID) %>%
+  mutate(n_scans=n()) %>%
+  filter(n_scans>=2) %>%
+  select(-n_scans) %>%
+  ungroup() %>%
+  select(!matches("VOLUME")) %>%
+  pivot_longer(cols=c(-RID, -EXAMDATE), names_to="ROI", values_to="SUVR") %>%
+  mutate(ROI = str_replace(ROI, "_SUVR", "")) %>%
+  group_by(ROI) %>%
+  summarise(`Percent Missing` = sum(is.na(SUVR))/n(),
+            `Number Missing` = sum(is.na(SUVR))) %>%
+  datatable()
+```
+
+</div>
+
+All regions have zero missing data points, so no imputation will be necessary. Now, I'll check the distribution of tau-PET uptake values across the ROIs.
+
+<div class="fold s">
+
+```{r, results='hold'}
+p_roi_suvr <- tau.df %>%
+  select(-VISCODE, -VISCODE2, -update_stamp) %>%
+  group_by(RID) %>%
+  mutate(n_scans=n()) %>%
+  filter(n_scans>=2) %>%
+  select(-n_scans) %>%
+  select(!matches("VOLUME")) %>%
+  pivot_longer(cols=c(-RID, -EXAMDATE), names_to="ROI", values_to="SUVR") %>%
+  mutate(ROI = str_replace(ROI, "_SUVR", "")) %>%
+  mutate(ROI=tolower(ROI)) %>%
+  group_by(ROI) %>%
+  summarise(Mean_SUVR=mean(SUVR, na.rm=T),
+            SD_SUVR = sd(SUVR, na.rm=T),
+            ymin = Mean_SUVR-SD_SUVR,
+            ymax = Mean_SUVR+SD_SUVR) %>%
+  ggplot(data=., mapping=aes(x=fct_reorder(ROI, Mean_SUVR, .desc=F), 
+                             y=Mean_SUVR,
+                             label = ROI)) +
+  geom_bar(stat="identity", show.legend=F, fill="lightsteelblue") +
+  geom_errorbar(aes(ymin=ymin, ymax=ymax), width=0, color="lightslategray") +
+  coord_flip() +
+  theme_minimal() +
+  ylab("Mean Tau-PET SUVR") +
+  xlab("Region of Interest") +
+  ggtitle("Mean Tau-PET SUVR by ROI") +
+  theme(axis.text.x=element_text(size=8, angle=45))
+
+
+ggplotly(p_roi_suvr, height=1000, width=600, tooltip=c("label", "y"))
+rm(p_roi_suvr)
+```
+
+</div>
+
+
+These values are supposed to be normalized to the inferior cerebellum gray matter, indicated by `INFERIOR_CEREBGM_SUVR`. To confirm, I'll check the distribution of `INFERIOR_CEREBGM_SUVR` values.
+
+<div class="fold s">
+
+```{r, results='hold'}
+p_inf_cb <- tau.df %>%
+  select(-VISCODE, -VISCODE2, -update_stamp) %>%
+  group_by(RID) %>%
+  mutate(n_scans=n()) %>%
+  filter(n_scans>=2) %>%
+  select(-n_scans) %>%
+  select(!matches("VOLUME")) %>%
+  pivot_longer(cols=c(-RID, -EXAMDATE), names_to="ROI", values_to="SUVR") %>%
+  mutate(ROI = str_replace(ROI, "_SUVR", "")) %>%
+  filter(ROI=="INFERIOR_CEREBGM") %>%
+  ggplot(data=., mapping=aes(x=SUVR)) +
+  geom_histogram(aes(y=..count..), fill="lightsteelblue", color="lightslategray") +
+  theme_minimal() +
+  ylab("Number of Occurences") +
+  xlab("Inferior Cerebellum Gray SUVR") +
+  ggtitle("Distribution of Inferior Cerebellum Gray Matter Tau Uptake") +
+  theme(plot.title=element_text(hjust=0.5))
+
+ggplotly(p_inf_cb)
+rm(p_inf_cb)
+```
+</div>
+
+Most of the inferior cerebellum gray ROIs actually have SUVRs around 1.25. I'll re-normalize all ROI values to the mean of this distribution in Data Preparation.
+
+### Subject demographics data exploration
+
+ADNI compiled a merged dataset containing key information from several tables, including subject demographics, selected cognitive assessment scores, and select biomarker data.
+```{r}
+subj.info <- read.csv("../../ADNI_Data/Raw_Data/ADNIMERGE.csv", stringsAsFactors = T, na.strings="")
+subj.info.fields <- read_excel("../../ADNI_Data/Cleaned_Data/adnimerge_dict_mod.xlsx")
+```
+
+
+Without showing any of the data itself, here are the dataset features and corresponding descriptions detailed by ADNI:
+<div class="fold o">
+```{r}
+datatable(subj.info.fields)
+```
+</div>
+
+The columns I will be using for this project include: 
+
+* `RID`: Participant roster ID, which serves as unique subject identifier 
+* `VISCODE`: Visit code
+* `EXAMDATE`: Date
+* `AGE`: Age at visit
+* `PTGENDER`: Biological sex
+* `CDRSB`: CDR Sum-of-Boxes score at visit
+* `DX`: Current cognitive diagnosis
+
+```{r}
+subj.info$EXAMDATE <- as.Date(subj.info$EXAMDATE, format="%m/%d/%Y")
+summary(subj.info %>% select(RID, VISCODE, EXAMDATE, AGE, PTGENDER, CDRSB, DX))
+```
+
+There is a lot of missing data in this dataset -- however, this dataset includes many subjects and visit dates that don't correspond to tau-PET scans, and therefore won't be used in this analysis. Missingness will be re-evaluated once the PET data and subject demographic data is merged in [Data Preparation](https://anniegbryant.github.io/DA5030_Final_Project/Pages/3_Data_Preparation.html).  
+
+The time distribution of ADNI cognitive assessment data can be visualized:
+<div class="fold s">
+```{r}
+subj.info %>%
+  select(RID, EXAMDATE) %>%
+  plot_ly(x=~EXAMDATE, type="histogram",
+          marker = list(color = "lightsteelblue",
+                        line = list(color = "lightslategray",
+                                    width = 1.5))) %>%
+  layout(title = 'Subject Demographics Date Distribution',
+         xaxis = list(title = 'Visit Date',
+                      zeroline = TRUE),
+         yaxis = list(title = 'Number of Subjects')) 
+```
+
+</div>
+
+One thing to note is that tau-PET was only incorporated into the ADNI pipeline in late 2015/early 2016, so any demographic information from pre-2016 will not be included in modeling and analysis. Let's check how many subjects had more than one visit recorded in this dataset:
+
+<div class="fold s">
+```{r, results='hold'}
+p_subj_long <- subj.info %>%
+  mutate(RID=as.character(RID)) %>%
+  group_by(RID) %>%
+  summarise(n_exams=n()) %>%
+  ggplot(., aes(x=fct_reorder(RID, n_exams, .desc=T), y=n_exams, label=RID)) +
+  geom_bar(stat="identity", aes(fill=n_exams, color=n_exams)) +
+  labs(fill="Count", color="Count") +
+  ggtitle("Number of ADNI Visits per Subject") +
+  ylab("Number of Visits") +
+  xlab("Subjects") +
+  theme(axis.text.x=element_blank(),
+        plot.title=element_text(hjust=0.5)) 
+
+ggplotly(p_subj_long, tooltip = c("y"))
+rm(p_subj_long)
+```
+</div>
+
+
+Unlike with the PET data, most subjects have two or more visits recorded with cognitive and demographic information. The most ADAS-13 scores recorded for one subject maxes out at 21. To examine precisely how many subjects have at least two visits recorded:
+
+<div class="fold s">
+
+```{r, results='asis'}
+num.subj <- subj.info %>%
+  mutate(RID=as.character(RID)) %>%
+  group_by(RID) %>%
+  summarise(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  ungroup() %>%
+  summarise(num_subjects=n(),
+            total_exams=sum(n_exams))
+cat("Number of subjects with at least two ADNI visits: **", 
+    num.subj$num_subjects, "**\n", 
+    "\nTotal number of longitudinal ADNI visits recorded: **", 
+    num.subj$total_exams, "**\n", sep="")
+
+```
+
+</div>
+
+
+There are 2,027 subjects with two or more ADNI visits in this dataset. This should include all subjects and visit dates included in the tau-PET dataset, which will be confirmed upon merging the datasets in the [Data Preparation](https://anniegbryant.github.io/DA5030_Final_Project/Pages/3_Data_Preparation.html) stage.
+
+It's also worth checking the distribution of time interval between ADNI visits in these 2,027 subjects with two or more visits:
+
+<div class="fold s">
+```{r, results='hold'}
+p.subj.interval <- subj.info %>%
+  select(RID, EXAMDATE) %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  arrange(EXAMDATE) %>%
+  mutate(Years_between_ADNI = 
+           as.numeric((EXAMDATE - lag(EXAMDATE, 
+                                      default = EXAMDATE[1]))/365)) %>%
+  filter(Years_between_ADNI>0) %>%
+  ggplot(., aes(x=Years_between_ADNI)) +
+  geom_histogram(stat="count", fill="lightsteelblue", color="lightslategray") +
+  ggtitle("Years in between ADNI visits per Subject") +
+  ylab("Frequency") +
+  xlab("# Years between two consecutive ADNI visits") +
+  theme_minimal() +
+  theme(plot.title=element_text(hjust=0.5)) 
+
+ggplotly(p.subj.interval)
+rm(p.subj.interval)
+```
+
+</div>
+
+Interestingly, there is a clear peak around 0.5 (six months) and a smaller peak around 1 (one year), indicating that most visits were spaced between 6 and 12 months apart. However, there is a positive skew to this distribution showing that a portion of subjects went up to eight years in between visits. This is not likely to affect my analysis, as most tau-PET subjects had PET scans from 2018 onward, and would therefore have a follow-up interval of two years or less.
+
+Now, I'll look into the distribution of the two target variables -- `DX` and `CDRSB` -- and how they relate to other covariates, namely age and sex. These visualizations are filtered to show only those subjects with 2+ assessments.
+
+<div class="fold s">
+```{r, results='hold'}
+p.cdr.scores <- subj.info %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  ggplot(data=., mapping=aes(x=CDRSB)) +
+  geom_histogram(aes(y=..count..), fill="lightsteelblue", color="lightslategray") +
+  theme_minimal() +
+  ylab("# of Occurences") +
+  xlab("CDR-Sum of Boxes") +
+  ggtitle("Clinical Dementia Rating (CDR) Sum of Boxes Distribution") +
+  theme(plot.title=element_text(hjust=0.5))
+
+ggplotly(p.cdr.scores)
+rm(p.cdr.scores)
+```
+
+</div>
+
+
+<div class="fold s">
+```{r, results='hold'}
+p.cog.diag <- subj.info %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  ggplot(data=., mapping=aes(x=DX)) +
+  geom_histogram(stat="count", aes(fill=DX)) +
+  theme_minimal() +
+  ylab("# of Occurences") +
+  xlab("Diagnosis") +
+  ggtitle("Cognitive Diagnosis Distribution") +
+  theme(legend.position="none", plot.title=element_text(hjust=0.5))
+
+ggplotly(p.cog.diag)
+rm(p.cog.diag)
+```
+
+</div>
+
+The majority of subjects are diagnosed with MCI (mild cognitive impairment). Many subjects do not have a current cognitive diagnosis; this will be revisited once the tau-PET and subject demographics datasets are merged.
+
+Now, to stratify by age and sex, respectively:
+
+<div class="fold s">
+```{r, results='hold'}
+p.cdr.sex.violin <- subj.info %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  ggplot(data=., mapping=aes(x=PTGENDER, y=CDRSB)) +
+  geom_violin(aes(fill=PTGENDER)) +
+  theme_minimal() +
+  ylab("CDR Sum of Boxes Score") +
+  xlab("Biological Sex") +
+  geom_signif(map_signif_level = F,
+              test="t.test",
+              comparisons=list(c("Female", "Male"))) +
+  ggtitle("Clinical Dementia Rating (CDR) Sum of Boxes by Sex") +
+  theme(plot.title=element_text(hjust=0.5),
+        legend.position="none")
+
+p.cdr.sex.hist <- subj.info %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  ggplot(data=., mapping=aes(x=CDRSB)) +
+  geom_histogram(aes(y=..count.., fill=PTGENDER)) +
+  facet_wrap(PTGENDER ~ ., ncol=1) +
+  theme_minimal() +
+  ylab("Number of Subjects") +
+  xlab("CDR Sum of Boxes Score") +
+  ggtitle("Clinical Dementia Rating (CDR) Sum of Boxes Distribution by Sex") +
+  theme(plot.title=element_text(hjust=0.5),
+        legend.position="none")
+
+
+p.cdr.sex.violin <- ggplotly(p.cdr.sex.violin)
+p.cdr.sex.hist <- ggplotly(p.cdr.sex.hist)
+subplot(p.cdr.sex.violin, p.cdr.sex.hist, shareX=F, shareY=F,
+        titleX=T, titleY=T) %>% 
+  layout(xaxis = list(title = "Biological Sex", 
+                      titlefont = list(size = 12)), 
+         xaxis2 = list(title = "CDR Sum of Boxes Score", 
+                       titlefont = list(size = 12)),
+         yaxis=list(title="CDR Sum of Boxes Score", 
+                    titlefont = list(size = 12)),
+         yaxis2 = list(title="Number of Subjects", 
+                       titlefont = list(size = 12)),
+         yaxis3 = list(title="Number of Subjects", 
+                       titlefont = list(size = 12)))
+
+rm(p.cdr.sex.hist, p.cdr.sex.violin)
+```
+</div>
+
+The distribution of CDR Sum of Boxes score looks similar between Females and Males by eye, but I'll follow up with a t-test to confirm:
+
+<div class="fold s">
+```{r, results='hold'}
+t.test.df <- subj.info %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  ungroup() 
+
+t.test(CDRSB ~ PTGENDER, data=t.test.df)
+rm(t.test.df)
+```
+</div>
+
+In fact, there is actually a statistically significant (p<0.05) difference in CDR Sum of Boxes scores between males and females, with male subjects exhibiting an average score ~0.15 points higher than female subjects. This is an important consideration, and I will be sure to include sex as a covariate in prediction models where applicable. Similarly, I'll compare cognitive diagnosis by sex:
+
+<div class="fold s">
+
+```{r, results='hold'}
+p.cog.sex.abs <- subj.info %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  plot_ly(x=~DX, color=~PTGENDER, type="histogram") %>%
+  layout(xaxis=list(title="Cognitive Diagnosis"),
+         yaxis=list(title="Number of Occurrences by Sex"))
+
+p.cog.sex.rel <- subj.info %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  group_by(PTGENDER) %>%
+  mutate(n_gen = n()) %>%
+  group_by(PTGENDER, DX) %>%
+  summarise(DX_prop = mean(n()/n_gen)) %>%
+  plot_ly(x=~DX, y=~DX_prop, color=~PTGENDER, type="bar", showlegend=F) %>%
+  layout(xaxis=list(title="Cognitive Diagnosis"),
+         yaxis=list(title="Proportion of All Visits by Sex"))
+
+subplot(p.cog.sex.abs, p.cog.sex.rel, shareX=T, shareY=F,
+        titleX=F, titleY=T, nrows=2) %>% 
+  layout(yaxis=list(title="Total Number of Occurrences", 
+                    titlefont = list(size = 12)),
+         yaxis2 = list(title="Proportion of All Visits by Sex", 
+                       titlefont = list(size = 12)),
+         xaxis = list(tickfont=list(size=16)),
+         title = "Cognitive Diagnosis Distribution by Sex",
+         legend = list(orientation = "h"))
+
+rm(p.cog.sex.abs, p.cog.sex.rel)
+```
+
+</div>
+
+
+Similarly, I'll compare CDR Sum of Boxes with age:
+
+
+<div class="fold s">
+
+```{r, results='hold'}
+p.age.cdr <- subj.info %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  ungroup() %>%
+  ggplot(data=., mapping=aes(x=AGE, y=CDRSB)) +
+  labs(color="Number of Points") +
+  xlab("Age at Visit") +
+  ylab("CDR Sum of Boxes") +
+  ggtitle("CDR Sum of Boxes vs. Age at Visit") +
+  geom_point(size=1, alpha=0.2, color="lightslategray", fill="lightslategray") +
+  theme_minimal() +
+  theme(plot.title=element_text(hjust=0.5),
+        legend.position="none")
+
+p.age.dist <- subj.info %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  ungroup() %>%
+  ggplot(data=., mapping=aes(x=AGE)) +
+  xlab("Number of Occurrences") +
+  ylab("Age at Visit") +
+  geom_histogram(aes(y=..count..), fill="lightsteelblue", color="lightslategray") +
+  theme_minimal() +
+  ggtitle("CDR Sum of Boxes vs. Age at Visit") +
+  theme(plot.title=element_text(hjust=0.5))
+p.age.cdr <- ggplotly(p.age.cdr)
+p.age.dist <- ggplotly(p.age.dist)
+subplot(p.age.cdr, p.age.dist, shareX=F, shareY=F,
+        titleX=T, titleY=T, margin = 0.05) %>% 
+  layout(xaxis = list(title = "Biological Sex", 
+                      titlefont = list(size = 12)), 
+         xaxis2 = list(title = "Age at Visit", 
+                       titlefont = list(size = 12)),
+         yaxis=list(title="CDR Sum of Boxes Score", 
+                    titlefont = list(size = 12)),
+         yaxis2 = list(title="Number of Subjects", 
+                       titlefont = list(size = 12)),
+         autosize = F, width = 800, height = 500)
+
+rm(p.age.cdr, p.age.dist)
+```
+</div>
+
+While there doesn't appear to be any clear linear association between age at visit and CDR Sum of Boxes score, I'll use `cor.test` to calculate the Pearson correlation coefficient and the corresponding p-value based on the correlation coefficient t-statistic:
+
+<div class="fold s">
+
+```{r}
+cor.test.df <- subj.info %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  ungroup() 
+
+cor.test(cor.test.df$AGE, cor.test.df$CDRSB)
+```
+</div>
+
+
+Interestingly, this correlation coefficient is statistically significant (p=8.512e-12), but the effect size is very small (r~=0.067). This significance seems to reflect the sheer size of the dataset rather than a strong relationship between age and CDR sum of boxes scores. Nevertheless, I will explore the use of age as a covariate in modeling later as this is a common practice.
+
+Looking also at age as a function of cognitive diagnosis: 
+
+<div class="fold s">
+
+```{r, results='hold'}
+p.dx.age <- subj.info %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  ungroup() %>%
+  ggplot(data=., mapping=aes(x=DX, y=AGE)) +
+  geom_boxplot(aes(fill=DX)) +
+  ylab("Age at Visit") +
+  xlab("Cognitive Diagnosis") +
+  theme_minimal() +
+  ggtitle("Age at Visit Distribution by Cognitive Diagnosis") +
+  theme(plot.title=element_text(hjust=0.5))
+
+ggplotly(p.dx.age)
+rm(p.dx.age)
+```
+
+</div>
+
+There is no glaring difference by eye in terms of age at visit by diagnostic group. This can also be confirmed with ANOVA (excluding NA diagnosis):
+
+<div class="fold s">
+
+```{r, results='hold'}
+anova.df <- subj.info %>%
+  group_by(RID) %>%
+  mutate(n_exams=n()) %>%
+  filter(n_exams>=2) %>%
+  ungroup() %>%
+  filter(!is.na(DX))
+
+age.dx.anova <- aov(AGE~DX, data=anova.df)
+age.dx.anova
+```
+
+As it turns out, there is significant between-group variance in age between diagnostic groups. This can be further assessed with Tukey's post-hoc test:
+```{r}
+age.dx.anova %>% tukey_hsd() %>% 
+  mutate_at(c("estimate", "conf.low", "conf.high", "p.adj"), function(x) round(x,5))  %>%
+  datatable()
+```
+
+</div>
+
+In addition to sex, I will include age as a covariate where applicable in modeling.
+
+
+#### Outlier detection
+
+To better identify outliers based on this multivariate dataset, I will calculate Cook's distance for each individual PET scan once the tau-PET data is merged with the cognitive status data.

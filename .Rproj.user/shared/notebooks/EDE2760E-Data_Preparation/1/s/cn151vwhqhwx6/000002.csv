@@ -1,5 +1,0 @@
-"0","tau.stand <- tau.df"
-"0","for (i in 4:ncol(tau.stand)) {"
-"0","  tau.stand[i] <- tau.stand[i]/ tau.df[4]"
-"0","}"
-"0","rm(tau.df)"

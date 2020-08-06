@@ -1,2 +1,0 @@
-"0","# trainControl for 10-fold CV and parallel processing"
-"0","ensemble.control <- trainControl(method=""cv"", number=10, allowParallel=T)"

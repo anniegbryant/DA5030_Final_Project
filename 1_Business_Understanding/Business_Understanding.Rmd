@@ -1,0 +1,46 @@
+---
+title: "Model Deployment Prep"
+output: 
+  html_document:
+    css: "../my_style.css"
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+toc_depth: 3
+number_sections: true
+theme: lumen
+---
+
+<script src="../hideOutput.js"></script>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The following packages are required for analysis and visualization in this page:
+
+```{r}
+# General data wrangling
+library(tidyverse)
+library(DT)
+library(readxl)
+
+# Visualization
+library(plotly)
+library(colorRamps)
+library(RColorBrewer)
+library(colorspace)
+library(ggseg)
+library(forcats)
+
+# Modeling
+library(glmnet)
+library(caret)
+library(ranger)
+
+# Ensemble building
+library(caretEnsemble)
+
+# Correlations
+library(Hmisc)
+```
