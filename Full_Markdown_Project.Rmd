@@ -56,7 +56,7 @@ The target feature in this project will be a continuous measurement representing
 
 # Phase 2: Data Understanding
 
-Libraries used in visualization and modeling:
+## All packages used in this file:
 ```{r}
 # General data wrangling
 library(tidyverse)
@@ -67,10 +67,26 @@ library(lubridate)
 library(readxl)
 library(fakeR)
 
+# Modeling
+library(factoextra)
+library(FactoMineR)
+library(glmnet)
+library(caret)
+library(ranger)
+library(caretEnsemble)
+
 # Visualization
 library(plotly)
 library(forcats)
 library(ggsignif)
+library(ggcorrplot)
+library(psych)
+library(GGally)
+library(gridExtra)
+library(colorRamps)
+library(RColorBrewer)
+library(colorspace)
+library(NeuralNetTools)
 
 # ggseg is used to visualize the brain
 # remotes::install_github("LCBC-UiO/ggseg")
@@ -118,6 +134,7 @@ write.csv(tau.sim, "../Simulated_ADNI_TauPET.csv", row.names = F)
 The simulated tau-PET dataset can be loaded as follows:
 ```{r}
 tau.df <- read.csv("../Simulated_ADNI_TauPET.csv")
+tau.df$EXAMDATE = as.Date(tau.df$EXAMDATE, format="%m/%d/%Y")
 ```
 
 Each row in the CSV represents one tau-PET scan (see `str` call below). Some subjects had repeated scans separated by approximately one year, while other subjects had only one scan. Columns include subject information including anonymized subject ID, visit code, and PET exam date. The other columns encode regional volume and tau-PET uptake. Specifically, there are 123 distinct cortical and subcortical regions of interest (ROIs), each of which has a volume field (in mm^3) and a tau-PET uptake field, called the Standardized Uptake Value Ratio (SUVR). 
@@ -689,3 +706,1132 @@ Interestingly, this correlation coefficient is statistically significant (p=8.51
 ### Outlier detection
 
 To better identify outliers based on this multivariate dataset, I will calculate Cook's distance for each data point once the tau-PET data is merged with the cognitive status data in the Data Preparation stage.
+
+# Phase Three: Data Preparation
+
+## Tau-PET Data
+
+I'll filter this tau-PET data to contain only subjects with 2+ tau-PET scans, and omit irrelevant columns: 
+<div class="fold o s">
+```{r}
+tau.df <- tau.df %>%
+  # Omit irrelevant columns
+  select(-VISCODE, -update_stamp, -HEMIWM_SUVR, -BRAAK12_SUVR,
+         -BRAAK34_SUVR, -BRAAK56_SUVR, -OTHER_SUVR) %>%
+  # Don't include volumetric data columns
+  select(!matches("VOLUME")) %>%
+  group_by(RID) 
+
+# remove _SUVR from column names
+colnames(tau.df) <- str_replace_all(colnames(tau.df), "_SUVR", "")
+str(tau.df)
+```
+
+### SUVR normalization
+
+As shown in Data Understanding, the ROIs are not precisely standardized to the inferior cerebellum gray matter SUVR. I will re-standardize each region's ROI SUVR values here:
+
+```{r}
+# tau.stand = tau-PET dataframe with ROI SUVR values re-standardized to inferior cerebellum gray matter SUVR
+tau.stand <- tau.df
+# iterate over all ROI columns and standardize to inferior cerebellum gray -- tau.df[4]
+for (i in 4:ncol(tau.stand)) {
+  tau.stand[i] <- tau.stand[i]/ tau.df[4]
+}
+rm(tau.df)
+```
+
+Standardization can be verified using `summary`:
+```{r}
+summary(tau.stand$INFERIOR_CEREBGM)
+```
+
+### ROI selection, *a priori*
+
+Now that regional SUVR is properly standardized, the next step is to select brain regions based on *a priori* knowledge of where and how tau affects the brain in MCI/AD. I am going to stratify the cortical parcellations and subcortical segmentations based on Schöll et al. [(2016)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4779187/) and per UCSF's recommendations for usage of their tau-PET data. Here is the stratification across the Braak stages:
+
+
+```{r}
+# Display the UCSF & Scholl 2016 ROI Braak stage datatable
+roi.braak <- read.csv("../RData/roi_braak_stages.csv") %>% 
+  mutate(ROI_Name = tolower(ROI_Name)) %>%
+  mutate(Hemisphere = ifelse(str_detect(ROI_Name, "rh_|right"), "Right", "Left"))
+datatable(roi.braak %>% select(-Base_Name))
+```
+
+The following plots show the spatial relationship of the Braak stages in the brain, in the cortical (top) and subcortical (bottom) ROIs:
+
+```{r, results='hold'}
+# Load dataframes that link the ADNI tau-PET ROIs with nomenclature used in the ggseg package
+ggseg.aparc <- read_excel("../RData/ggseg_roi.xlsx", sheet=1) %>%
+  mutate(Braak=as.numeric(as.roman(Braak)))
+ggseg.aseg <- read_excel("../RData/ggseg_roi.xlsx", sheet=2) %>%
+  mutate(Braak=as.numeric(as.roman(Braak)))
+
+# Plot the Desikan-Killiany cortical parcellation atlas
+p.aparc <-  dk %>% filter(hemi=="right") %>% 
+  unnest(ggseg) %>% 
+  select(region) %>% 
+  na.omit() %>% 
+  distinct() %>%
+  left_join(., ggseg.aparc, by=c("region"="ggseg_ROI")) %>%
+  mutate(Braak = as.character(Braak)) %>%
+  # ggseg: dk=Desikan-Killiany atlas, fill by Braak region, label by ROI name
+  ggseg(atlas="dk", mapping=aes(fill=Braak, label=region)) +
+  scale_fill_manual(values=c("#F8766D", "#A3A617", "#00BF7D",
+                             "#00B0F6", "#E76BF3"), na.value="gray80") +
+  theme(axis.text.y=element_blank(),
+        axis.text.x = element_text(family="calibri"),
+        axis.title.x = element_text(family="calibri"),
+        legend.title=element_text(family="calibri"),
+        legend.text=element_text(family="calibri"))
+# Convert to plotly interactive visualization
+ggplotly(p.aparc, tooltip = c("fill", "label"), width=800, height=300)
+
+# Plot the FreeSurfer subcortical segmentation atlas
+p.aseg <- aseg %>% filter(hemi=="right") %>% 
+  unnest(ggseg) %>% 
+  select(region) %>% 
+  na.omit() %>% 
+  distinct() %>%
+  left_join(., ggseg.aseg, by=c("region"="ggseg_ROI")) %>%
+  mutate(Braak = as.character(Braak)) %>%
+  # ggseg: aseg=subcortical segmentation atlas, fill by Braak region, label by ROI name
+  ggseg(atlas="aseg", mapping=aes(fill=Braak, label=region)) +
+  scale_fill_manual(values=c("deeppink", "#A3A617"), na.value="gray80") +
+  theme(axis.text.y=element_blank(),
+        axis.text.x = element_text(family="calibri"),
+        axis.title.x = element_text(family="calibri"),
+        legend.title=element_text(family="calibri"),
+        legend.text=element_text(family="calibri"))
+# Convert to plotly interactive visualization
+ggplotly(p.aseg, tooltip=c("fill", "label"), width=800, height=300)
+```
+
+I will filter the tau-PET dataset to only include SUVR data for ROIs detailed in the above list, by first reshaping the tau-PET SUVR data from wide to long. Then, I will merge left and right hemisphere ROIs into one bilateral ROI by taking the mean SUVR.
+
+```{r}
+# ADNI tau-PET data includes other ROIs outside of this Braak stage dataset; for this study, I'm not looking at those
+tau.stand.roi <- tau.stand %>%
+  pivot_longer(., cols=c(-RID, -VISCODE2, -EXAMDATE), names_to="ROI_Name", values_to="SUVR") %>%
+  mutate(ROI_Name=tolower(ROI_Name)) %>%
+  # Only keep ROIs included in Braak stage stratifcation via semi-join
+  semi_join(., roi.braak) %>%
+  # Once dataset has been filtered, add columns containing Braak stage and cortical lobe
+  left_join(., roi.braak) %>%
+  # Remove right/left distinction from ROI name
+  mutate(ROI_Name = str_replace_all(ROI_Name, "right_|left_|ctx_rh_|ctx_lh_", "")) %>%
+  # Group by bilateral ROI -- e.g. "hippocampus" which contains left and right hippocampus
+  dplyr::group_by(RID, VISCODE2, EXAMDATE, ROI_Name, Braak) %>%
+  # Calculate ROI average SUVR
+  dplyr::summarise(SUVR = mean(SUVR, na.rm=T))
+```
+
+
+This yields the following 31 distinct cortical ROIs:  
+
+```{r}
+data.frame(ROI=unique(tau.stand.roi$ROI_Name)) %>%
+  left_join(., roi.braak, by=c("ROI"="Base_Name")) %>%
+  select(-ROI_Name, -Hemisphere) %>%
+  distinct() %>%
+  datatable()
+```
+
+### Final reshaping
+
+Now, I will re-shape the tau-PET data back to wide to be compatible with the cognitive status data shape.
+
+```{r}
+# Reshape wide --> long to be merged with CDR-SoB cognitive data
+tau.stand.roi <- tau.stand.roi %>% 
+  select(-Braak) %>%
+  pivot_wider(id_cols=c(RID, VISCODE2, EXAMDATE), names_from="ROI_Name",
+              values_from="SUVR")
+
+str(tau.stand.roi)
+```
+
+
+## Merging datasets
+
+```{r}
+subj.info <- subj.info %>% select(RID, VISCODE, AGE, PTGENDER, CDRSB)
+```
+
+I actually can't join the two datasets on the EXAMDATE feature, as these sometimes differ by one or two days depending on when the records were entered. Instead, I will join by the RID subject identifier and VISCODE, a visit code identifier.
+
+```{r}
+# full.df = merged tau-PET data and cognitive assessment data
+full.df <- inner_join(tau.stand.roi, subj.info, by=c("RID", "VISCODE2"="VISCODE"))  %>%
+  filter(!is.na(CDRSB)) %>%
+  group_by(RID) %>%
+  dplyr::mutate(n_visits = n()) %>%
+  # Only keep subjects with 2+ PET scans and cognitive assessments
+  filter(n_visits>1) %>%
+  select(-n_visits)
+```
+
+Here's the structure of this merged dataset:
+
+```{r}
+str(full.df)
+```
+
+```{r, results='asis'}
+cat("\nNumber of longitudinal tau-PET scans with accompanying cognitive data: **\n",
+    nrow(full.df), "**\nNumber of subjects in merged dataset: **", 
+    length(unique(full.df$RID)), "**\n", "\n", sep="")
+```
+
+As it turns out, only `r nrow(full.df)` of the original 593 tau-PET scans had corresponding cognitive assessments. This leaves `r nrow(full.df)` unique PET scan datapoints for `r length(unique(full.df$RID))` subjects.  
+
+### Rate of change calculation
+
+Lastly, before I can perform outlier detection, I need to derive the longitudinal features upon which the prediction models will be built -- namely, annual change in tau-PET SUVR and annual change in CDR-Sum of Boxes score.
+
+```{r}
+# Calculate change in tau-PET SUVR and CDR-SoB over time, normalized to # of years elapsed
+annual.changes <- full.df %>%
+  ungroup() %>%
+  select(-VISCODE2) %>%
+  # Reshape wide --> long
+  pivot_longer(cols=c(-RID, -EXAMDATE, -PTGENDER, -AGE), names_to="Metric",
+               values_to="Value") %>%
+  # Calculate number of years between each visit as well as change in SUVR or CDR-SoB
+  dplyr::group_by(RID, PTGENDER, AGE, Metric) %>%
+  dplyr::summarise(n_years = as.numeric((EXAMDATE - lag(EXAMDATE, 
+                                                        default=EXAMDATE[1]))/365),
+                   change = Value - lag(Value, default=Value[1])) %>%
+  # Remove data points corresponding to first visit
+  filter(n_years > 0) %>%
+  # Calculate change in either tau-PET SUVR or CDR-SoB change per year
+  dplyr::mutate(Annual_Change = change/n_years) %>%
+  # Remove columns that are no longer needed
+  select(-n_years, -change) %>%
+  group_by(RID, Metric) %>%
+  # Assign row identifier with row_number()
+  dplyr::mutate(interval_num = row_number()) %>%
+  # Reshape from long --> wide
+  pivot_wider(., id_cols=c(RID, AGE, PTGENDER, interval_num), names_from=Metric,
+              values_from=Annual_Change) %>%
+  rename("Age_Baseline" = "AGE",
+         "Sex" = "PTGENDER")
+datatable(annual.changes[1:5])
+```
+
+### Outlier detection
+
+Now that the datasets are merged, I can perform outlier detection. Given the multivariate nature of this dataset (i.e. multiple brain regions), I will use Cook's Distance to estimate the relative influence of each data point in a simple multiple regression model.
+
+
+```{r, results='hold'}
+# Calculate Cook's Distance using multiple regression of CDR-SoB annual change on tau-PET SUVR change for all 31 ROIs
+cooks.distance <- cooks.distance(lm(CDRSB ~ . - RID - interval_num, data=annual.changes))
+
+# Plot Cook's distance for each subject
+p.cooks <- data.frame(CD=cooks.distance) %>%
+  rownames_to_column(var="Data_Point") %>%
+  mutate(Data_Point=as.numeric(Data_Point)) %>%
+  mutate(Label=ifelse(CD>30, Data_Point, NA_real_)) %>%
+  ggplot(data=., mapping=aes(x=Data_Point,y=CD)) +
+  geom_hline(yintercept = 4*mean(cooks.distance,na.rm=T), color="blue") +
+  geom_point() +
+  geom_text(aes(label=Label), nudge_y=1.5) +
+  ylab("Cook's Distance") +
+  xlab("annual.changes index") +
+  theme_minimal()
+
+# Convert to interactive plotly visualization
+ggplotly(p.cooks)
+rm(p.cooks)
+```
+
+
+All but one data point have relatively low Cook's distance values, while data point #224 has a relatively large Cook's distance. This suggests large residuals and leverage associated with this datapoint, which could distort model fitting and accuracy. Upon further examination of this instance:  
+
+```{r}
+# Show data from row 224
+as.data.frame(t(annual.changes[224,])) %>%
+  rownames_to_column(var="Variable") %>%
+  dplyr::rename("Value" = "V1") %>%
+  datatable()
+```
+
+This subject exhibits very large fluctuations in tau-PET SUVR values in several brain regions for this associated time interval. Given that SUVR values typically range from 0.75-2, changes of this large magnitude is surprising, and may certainly render this data point an outlier. Fortunately, the `interval_num` of 2 indicates that this is the second time interval for this subject, so omitting this interval doesn't reduce the total number of subjects in the analysis. I will remove this data point:
+
+```{r}
+# Omit row 224
+annual.changes <- annual.changes[-224,]
+```
+
+### Tau-PET annual change across ROIs
+
+I can now finish some aspects of data exploration that depended upon refining the subject cohort as well as the features. For starters, I will examine the distribution of annual tau change in each of the 31 ROIs:
+
+```{r}
+# reshape tau-PET SUVR change ROI-wise data from wide --> long
+annual.changes.tau <- annual.changes %>%
+  select(-CDRSB) %>%
+  ungroup() %>%
+  pivot_longer(cols=c(-RID, -interval_num, -Age_Baseline, -Sex), names_to="ROI",
+               values_to="deltaSUVR")
+
+# Plot SUVR change distribution for each ROI using multi.hist from psych package
+multi.hist(annual.changes %>% ungroup() %>% select(-RID, -interval_num, -CDRSB, -Age_Baseline, -Sex),
+           dcol="red")
+```
+
+The distribution looks reasonably normal for each ROI, and all of the curves peak around zero, suggesting all of the ROIs have a mean of ~0. Since there are both negative values and values of zero in these data, neither log nor square root transformation would be possible, anyway. Therefore, I will leave the variable distribution as-is.
+
+Next, I will visualize the correlation in annual tau change between each of the ROIs measured:
+
+```{r}
+# Select only tau-PET ROIs from annual change dataset
+annual.roi <- annual.changes %>% ungroup() %>% select(-RID, -interval_num, -CDRSB, -Age_Baseline, -Sex)
+# Calculate correlation matrix between all ROIs
+roi.cor <- cor(annual.roi)
+
+# Plot the correlation matrix using ggcorrplot, order by hierarchical clustering
+ggcorrplot(roi.cor, hc.order = TRUE, outline.col = "white") %>% 
+  # Convert to interactive correlogram with plotly
+  ggplotly(width=800, height=700)
+```
+
+As it turns out, all ROIs show positive correlations in the annual rate of change in tau-PET uptake, with the exception of three ROI pairs: 
+
+* entorhinal and pericalcarine (R=-0.14) 
+* entorhinal and transverse temporal (R=-0.07) 
+* transverse temporal and lateral occipital (R=-0.07)
+
+These are very weak correlations, and can be further visualized with scatter plots:
+
+```{r}
+# Highlight the ROIs noted above with (slightly) negative correlations
+# Use ggpairs function from GGally to visualize their pairwise distributions
+p.select.rois <- ggpairs(annual.roi %>% select(entorhinal, pericalcarine, 
+                                               transversetemporal,
+                                               lateraloccipital),
+                         # Add regression line to scatter plots
+                         lower = list(continuous = wrap("smooth", se=F, 
+                                                        method = "lm", 
+                                                        color="lightslategray",
+                                                        alpha=0.4))) +
+  theme_minimal()
+
+# Convert to interactive pair plot with plotly
+ggplotly(p.select.rois, width=700, height=600)
+```
+
+These negative correlations are indeed weak and mostly noise, based on the scatter plots. Regarding the other positive correlations, I am curious as to whether there are underlying trends based on either spatial proximity and/or tau progression in AD, based on cortical lobe and Braak regions, respectively:
+
+```{r, results='hold', out.width='80%', out.height='80%'}
+# Convert correlation matrix from wide --> long, each row will detail one pairwise correlation
+roi.cor.long <-  as.data.frame(roi.cor) %>%
+  rownames_to_column(var="ROI1") %>%
+  pivot_longer(cols=c(-ROI1), names_to="ROI2", values_to="Pearson_Corr") %>%
+  # Exclude rows where the two ROIs are the same, where correlation is always 1
+  filter(ROI1 != ROI2) %>%
+  # Join with Braak-stage stratification dataframe by the first ROI column
+  left_join(., roi.braak, by=c("ROI1"="Base_Name")) %>%
+  select(-ROI_Name, -Hemisphere) %>%
+  # Specify that Braak + Cortex info pertain to the first ROI column, not the second
+  dplyr::rename("ROI1_Braak" = "Braak", "ROI1_Cortex" = "Cortex") %>%
+  # Merge again with Braak-stage stratification, this time by the second ROI column
+  left_join(., roi.braak, by=c("ROI2" = "Base_Name")) %>%
+  select(-ROI_Name, -Hemisphere) %>%
+  dplyr::rename("ROI2_Braak" = "Braak", "ROI2_Cortex" = "Cortex") %>%
+  # Rename Insula as Ins for visualization purpose
+  mutate_at(c("ROI1_Cortex", "ROI2_Cortex"), function(x) ifelse(x=="Insula", "Ins", x))
+
+# Plot the correlation by Cortical Lobe
+p.cor.cortical <- roi.cor.long %>%
+  ggplot(., mapping=aes(x=ROI1, y=ROI2)) +
+  # Heatmap, fill squares by pearson correlation coefficient
+  geom_tile(mapping=aes(fill=Pearson_Corr)) +
+  labs(fill="Pearson Coefficient") +
+  theme_minimal() +
+  # Facet by cortical lobes
+  facet_grid(ROI2_Cortex ~ ROI1_Cortex, scales="free", 
+             space="free", switch="both") +
+  ggtitle("Correlation in Annual Tau SUVR Change by Cortical Lobe") +
+  theme(axis.title=element_blank(),
+        axis.text.y = element_text(size=11),
+        axis.text.x = element_text(angle=90, size=11, hjust=1),
+        panel.border = element_blank(), 
+        panel.grid = element_blank(),
+        plot.title=element_text(hjust=0.5)) +
+  theme(strip.placement = "outside") +
+  scale_fill_gradient2(low="#210DFC", mid="white", high="#FF171B",
+                       limits=c(-1,1))
+
+# Save correlation matrix to PNG and print -- dimensions were bizarre if I plotted directly from ggplot
+ggsave("ROI_Correlation_Cortical.png", plot=p.cor.cortical, width=9, height=7.5, units="in", dpi=300)
+include_graphics("ROI_Correlation_Cortical.png")
+```
+
+There are somewhat stronger inter-correlations within the frontal and parietal cortices compared with other cortical lobes. Now stratifying based on ROI Braak stage:
+
+```{r, results='hold', out.width='80%', out.height='80%'}
+# Plot the correlation by Braak Stage
+p.cor.braak <- roi.cor.long %>%
+  ggplot(., mapping=aes(x=ROI1, y=ROI2)) +
+  # Heatmap, fill squares by pearson correlation coefficient
+  geom_tile(mapping=aes(fill=Pearson_Corr)) +
+  labs(fill="Pearson Coefficient") +
+  theme_minimal() +
+  # Facet by Braak stage
+  facet_grid(ROI2_Braak ~ ROI1_Braak, scales="free", 
+             space="free", switch="both") +
+  ggtitle("Correlation in Annual Tau SUVR Change by Braak Stage") +
+  theme(axis.title=element_blank(),
+        axis.text.y = element_text(size=11),
+        axis.text.x = element_text(angle=90, size=11, hjust=1),
+        panel.border = element_blank(), 
+        panel.grid = element_blank()) +
+  theme(strip.placement = "outside") +
+  scale_fill_gradient2(low="#210DFC", mid="white", high="#FF171B",
+                       limits=c(-1,1))
+
+# Save correlation matrix to PNG and print -- dimensions were bizarre if I plotted directly from ggplot
+ggsave("ROI_Correlation_Braak.png", plot=p.cor.braak, width=9, height=7.5, units="in", dpi=300)
+include_graphics("ROI_Correlation_Braak.png")
+```
+
+&nbsp; 
+
+This generally high correlation in annual tau-PET SUVR changes between cortical regions may pose a challenge when it comes to modeling, due to feature collinearity. 
+
+### Principal component analysis (PCA) 
+
+While I want to keep each region distinct for biological context, I will also reduce the dimensionality of the data using principal component analysis (PCA), which has an added benefit of yielding orthogonal un-correlated components to serve as input for the modeling phase. Since all the variables are in the same unit (i.e. change in SUVR per year), I will only need to center the data, not scale it.
+
+```{r}
+# Convert dataframe to numerical matrix
+pca.df <- as.matrix(annual.changes %>% ungroup() %>% select(-RID, -CDRSB, -interval_num, -Age_Baseline, -Sex))
+
+# Perform PCA with prcomp() from stats package
+# Center data but don't scale, as all columns are in same units (change in SUVR per year)
+res.pca <- prcomp(pca.df, center=T, scale.=F)
+
+# The variable info can be extracted as follows:
+var <- get_pca_var(res.pca)
+```
+
+
+The proportion of variance explained by each principal component (PC) can be visualized using a Scree plot:
+
+```{r, results='hold'}
+# Calculate cumulative proportion of variance explained
+cumpro <- cumsum(res.pca$sdev^2 / sum(res.pca$sdev^2)*100)
+# Calculate individual proportion of variance explained by each principal component
+variances <- data.frame((res.pca$sdev^2/sum(res.pca$sdev^2))*100)
+# Label PCs
+variances$PC <- c(1:31)
+# Add in cumulative proportion of variance to dataframe
+variances$cumpro <- cumpro
+# Establish column names
+colnames(variances) <- c("Variance_Proportion", "PC", "CumVar")
+
+# Create a new row just for visualization purpose, helps with axis structure
+newrow <- subset(variances, PC == 31)
+newrow$PC <- 31.5
+variances <- plyr::rbind.fill(variances, newrow)
+
+# Set individual variance line as maroon, cumulative variance line as green
+linecolors <- c("Component Variance" = "maroon4",
+                "Cumulative Variance" = "green4")
+
+# Plot the customized Scree plot
+p.var <- variances %>%
+  ggplot(data=.) +
+  # Add a bar for each principal component, showing individual proportion of variance
+  geom_bar(data=subset(variances, PC < 32), mapping=aes(x=PC, y=Variance_Proportion),
+           stat="identity", fill="steelblue") +
+  # Add line for individual component variance
+  geom_line(aes(color="Component Variance", x=PC, y=Variance_Proportion), 
+            size=0.7, data=subset(variances, PC < 31.1), show.legend=F) +
+  # Add line for cumulative variance explained with each additional principal component
+  geom_line(aes(x=PC, y=CumVar, color="Cumulative Variance"), size=0.7,
+            data=subset(variances, PC < 32)) +
+  geom_point(aes(x=PC, y=Variance_Proportion),data=subset(variances, PC < 31.1), size=1.5) +
+  # Set line colors as defined above
+  scale_colour_manual(name="",values=linecolors, 
+                      guide = guide_legend(override.aes=list(size=2))) + 
+  theme_minimal() +
+  ylab("Percentage of Variance Explained") +
+  xlab("Principal Component") +
+  ggtitle("Principal Components\nContribution to Subject Variance") +
+  # Manually define x-axis and y-axis limits so line aligns with bar plot
+  xlim(c(0.5, 31.5)) +
+  scale_y_continuous(breaks=seq(0, 100, 10),
+                     sec.axis = dup_axis(name="")) +
+  theme(plot.title = element_text(hjust=0.5, size=14),
+        axis.text = element_text(size=12),
+        panel.grid = element_blank(),
+        legend.position="bottom",
+        legend.text = element_text(size=12))
+
+# Convert to plotly interactive visualization
+ggplotly(p.var, tooltip=c("x","y")) %>% 
+  layout(legend = list(orientation = "h", y=-0.2))
+```
+
+The first five principal components (PCs) collectively explain 77.2% of variance in the data; beyond these components, there are only marginal increases in the cumulative variance explained. Therefore, I will move forward with these first five PCs.
+
+Individual ROI contributions (loadings) per component can be extracted:
+
+```{r}
+# variable loadings are stored in the $rotation vector of prcomp output
+loadings_wide <- data.frame(res.pca$rotation) %>%
+  # add rownames as column
+  cbind(ROI=rownames(.), .) %>%
+  # remove original row names
+  remove_rownames() %>% 
+  # Select ROI and first five PCs
+  select(ROI:PC5) %>%
+  rowwise() %>%
+  # Join with Braak stage stratification dataframe
+  left_join(., roi.braak, by=c("ROI"="Base_Name")) %>%
+  select(ROI, Cortex, Braak, PC1:PC5) %>%
+  distinct()
+
+# Print interactive datatable
+datatable(loadings_wide %>% mutate_if(is.numeric, function(x) round(x,4)))
+```
+
+I'm curious as to whether ROIs exhibit similar covariance in annual tau-PET changes based on spatial proximity (i.e. cortical region) and/or similar Alzheimer's Disease progression (i.e. Braak stage).
+
+```{r, results='hold'}
+# Plot loadings colored by cortical lobe
+p.cortex <- loadings_wide %>%
+  ggplot(data=., mapping=aes(x=PC1, y=PC2, label=ROI)) +
+  geom_hline(yintercept=0, linetype=2, alpha=0.5) +
+  geom_vline(xintercept=0, linetype=2, alpha=0.5) +
+  geom_point(aes(color=Cortex), size=3) +
+  theme_minimal() +
+  xlab("PC1 (41.6% Variance)") +
+  ylab("PC2 (14.0% Variance)") +
+  ggtitle("ROI PC Loadings by Cortical Region") +
+  theme(plot.title=element_text(hjust=0.5))
+
+# Convert to interactive scatterplot with plotly
+ggplotly(p.cortex, tooltip=c("label", "x", "y"))
+rm(p.cortex)
+```
+
+The first note is that all of the ROIs exhibit a negative loading (correlation) with PC1. Beyond that, all of the occipital and parietal cortex ROIs are positively correlated with PC2, while the insula, temporal cortex, and cingulate cortex ROIs are all negatively correlated with PC2. The frontal cortex ROIs are right on the border of PC2, low correlations in both directions.
+
+```{r, results='hold'}
+# Plot PC loadings colored by Braak stage
+p.braak <- loadings_wide %>%
+  ggplot(data=., mapping=aes(x=PC1, y=PC2, label=ROI)) +
+  geom_hline(yintercept=0, linetype=2, alpha=0.5) +
+  geom_vline(xintercept=0, linetype=2, alpha=0.5) +
+  geom_point(aes(color=Braak), size=3) +
+  theme_minimal() +
+  xlab("PC1 (41.6% Variance)") +
+  ylab("PC2 (14.0% Variance)") +
+  ggtitle("ROI PC Loadings by Braak Stage") +
+  theme(plot.title=element_text(hjust=0.5))
+
+# Convert to interactive scatterplot with plotly
+ggplotly(p.braak, tooltip=c("label", "x", "y"))
+rm(p.braak)
+```
+
+There is not as clear a distinction to be made based on ROI Braak stage. One observation that does stand out is that all of the Braak VI ROIs are relatively close in the upper right of the points. Beyond that, the Braak stages are mixed in this loading plot.  
+
+Moving on, the subject and time interval info can be linked with the PCA results:
+
+```{r}
+# post.pca = subject identification info + first five PCs
+post.pca <- as.data.frame(res.pca$x[,1:5]) %>%
+  cbind(., RID=annual.changes$RID) %>%
+  cbind(., interval_num=annual.changes$interval_num) %>%
+  cbind(., CDRSB=annual.changes$CDRSB) %>%
+  cbind(., Age_Baseline=annual.changes$Age_Baseline) %>%
+  cbind(., Sex=annual.changes$Sex) %>%
+  select(RID, interval_num, Age_Baseline, Sex, CDRSB, PC1:PC5)
+
+# print interactive datatable
+datatable(post.pca %>% mutate_if(is.numeric, function(x) round(x,5)) %>% select(-Age_Baseline, -Sex))
+```
+
+### Dummy variable encoding
+
+The final step is to convert sex into a dummy variable for modeling:
+```{r}
+# Encode sex as a binary variable for Sex_Male
+annual.changes$Sex_Male <- ifelse(annual.changes$Sex=="Male", 1, 0)
+post.pca$Sex_Male <- ifelse(post.pca$Sex=="Male", 1, 0)
+
+# Remove original Sex feature
+annual.changes <- annual.changes %>% select(-Sex)
+post.pca <- post.pca %>% select(-Sex)
+```
+
+# Phase Four: Modeling (Original Data)
+
+
+### Data split for train + test
+
+As per standard convention in model development, I will randomly partition this dataset into training and testing subsets, such that the models are trained and evaluated in independent data subsets. I will use the `sample` function with a specific seed set (127) to partition the data into **75% training** and **25% testing**.
+
+```{r}
+# Set seed for consistency in random sampling for 10-foldcross-validation
+set.seed(127)
+train.index <- sample(nrow(annual.changes), nrow(annual.changes)*0.75, replace=F)
+
+# Remove unneccessary identifier info from datasets for modeling
+original <- annual.changes %>% ungroup() %>% select(-RID, -interval_num)
+
+# Pre-processing will be applied in model training with caret
+
+# Subset training + test data for original (ROI) data
+original.train <- original[train.index, ]
+original.test <- original[-train.index, ]
+```
+
+## Individual model training and tuning
+
+I will be using the `caretEnsemble` package to compile four individual regression models into a stacked ensemble. This package enables evaluation of the models individually as well as together in the ensemble. 
+
+The first step is to create a `caretList` of the four regression models I will use:  
+
+* Elastic net regression (`glmnet`) 
+* k-nearest neighbors regression (`knn`) 
+* Neural network regression (`nnet`) 
+* Random forest regression (`ranger`) 
+
+I will use the `trainControl` function to specify ten-fold cross-validation with parallel processing. 
+```{r}
+# trainControl for 10-fold CV and parallel processing
+ensemble.control <- trainControl(method="cv", number=10, allowParallel=T)
+```
+
+I'm using the RMSE as the metric according to which model parameters are tuned. All input data (which includes training and test data) will be automatically standardized using the `preProcess` center + scaling feature.
+
+```{r}
+# Set seed for consistency
+set.seed(127)
+
+# Neural net -- linout=T means linear output (i.e. not constrained to be [0,1]),
+# try a range of hidden layer sizes and weight decays
+my.neuralnet <- caretModelSpec(method="nnet", linout=T, trace=F, 
+                               tuneGrid = expand.grid(size=c(1, 3, 5, 10, 15), 
+                                                      decay = seq(0, 1, by=0.2)))
+
+# k-nearest neighbors: try 20 different values of k
+my.knn <- caretModelSpec(method="knn", tuneLength=20)
+
+# random forest: try 15 different numbers of features considered at each node and use 500 sampled trees
+my.randomforest <- caretModelSpec(method="ranger", tuneLength=15, num.trees=500, importance="permutation")
+
+# elastic net: try four different values of alpha for ridge/lasso blending and four lambda values for coefficient penalty
+my.elasticnet <- caretModelSpec(method="glmnet",
+                                tuneGrid=expand.grid(alpha=c(0,0.1,0.6,1), lambda=c(5^-5,5^-3,5^-1,1)))
+
+# Compile individual models into one cohesive model list using caretList
+invisible(capture.output(ensemble.models <- caretList(CDRSB ~ ., 
+                                                      data=original.train, 
+                                                      trControl=ensemble.control, 
+                                                      metric="RMSE", 
+                                                      preProcess=c("center", "scale"),
+                                                      tuneList=list(my.neuralnet, 
+                                                                    my.knn, 
+                                                                    my.randomforest, 
+                                                                    my.elasticnet))))
+```
+
+
+The final chosen parameters for each model can be viewed:
+
+### Elastic net final model
+
+```{r, results='hold'}
+# Print elastic net model summary
+ensemble.models$glmnet
+
+# Elastic net cross-validation results
+glmnet.alpha <- ensemble.models$glmnet$results$alpha
+glmnet.rmse <- ensemble.models$glmnet$results$RMSE
+glmnet.mae <- ensemble.models$glmnet$results$MAE
+glmnet.lambda <- ensemble.models$glmnet$results$lambda
+
+# Plot the RMSE and MAE in a facet plot using facet_wrap
+p.glmnet.cv <- data.frame(alpha=glmnet.alpha, RMSE=glmnet.rmse, MAE=glmnet.mae, lambda=glmnet.lambda) %>%
+  mutate(alpha=as.character(alpha)) %>%
+  pivot_longer(cols=c(RMSE, MAE), names_to="Metric", values_to="Value") %>%
+  mutate(Metric = ifelse(Metric=="MAE", "Mean Absolute Error", "Root-Mean Square Error")) %>%
+  # One line per value of alpha
+  ggplot(data=., mapping=aes(x=lambda, y=Value, color=alpha)) +
+  # Facet the MAE and RMSE in separate plots
+  facet_wrap(Metric ~ ., scales="free") +
+  geom_point() +
+  geom_line(aes(group=alpha)) +
+  theme_minimal() +
+  ggtitle("Elastic Net Regression Cross-Validated Results") +
+  theme(plot.title=element_text(hjust=0.5),
+        axis.title=element_blank(),
+        panel.spacing = unit(2, "lines"))
+
+# Convert to interactive plotly
+ggplotly(p.glmnet.cv) %>% 
+  layout(yaxis = list(title = "MAE", 
+                      titlefont = list(size = 12)),
+         xaxis = list(title = "lambda", 
+                      titlefont = list(size = 12)),
+         yaxis2 = list(title = "RMSE", 
+                       titlefont = list(size = 12)),
+         xaxis2 = list(title = "lambda", 
+                       titlefont = list(size = 12)),
+         autosize = F, width = 900, height = 400)
+
+# Clear workspace
+rm(glmnet.alpha, glmnet.rmse, glmnet.lambda, glmnet.mae, p.glmnet.cv, train.index)
+```
+
+&nbsp;
+
+### kNN final model
+
+```{r, results='hold'}
+# Print kNN model summary
+ensemble.models$knn
+
+# kNN cross-validation plot
+knn.k <- ensemble.models$knn$results$k
+knn.rmse <- ensemble.models$knn$results$RMSE
+knn.mae <- ensemble.models$knn$results$MAE
+
+# Plot the RMSE and MAE in a facet plot using facet_wrap
+p.knn.cv <- data.frame(k=knn.k, RMSE=knn.rmse, MAE=knn.mae) %>%
+  pivot_longer(cols=c(RMSE, MAE), names_to="Metric", values_to="Value") %>%
+  mutate(Metric = ifelse(Metric=="MAE", "Mean Absolute Error", "Root-Mean Square Error")) %>%
+  # One line per value of alpha
+  ggplot(data=., mapping=aes(x=k, y=Value, color=Metric)) +
+  # Facet the MAE and RMSE in separate plots
+  facet_wrap(Metric ~ ., scales="free") +
+  geom_point() +
+  geom_line() +
+  theme_minimal() +
+  ggtitle("kNN Regression Cross-Validated Results") +
+  theme(plot.title=element_text(hjust=0.5),
+        axis.title=element_blank(),
+        panel.spacing = unit(2, "lines"))
+
+# Convert to interactive plotly
+ggplotly(p.knn.cv) %>% 
+  layout(yaxis = list(title = "MAE", 
+                      titlefont = list(size = 12)),
+         xaxis = list(title = "k", 
+                      titlefont = list(size = 12)),
+         yaxis2 = list(title = "RMSE", 
+                       titlefont = list(size = 12)),
+         xaxis2 = list(title = "k", 
+                       titlefont = list(size = 12)),
+         autosize = F, width = 900, height = 400)
+
+rm(knn.rmse, knn.k, p.knn.cv, knn.mae)
+```
+
+&nbsp;
+
+### Neural network final model
+
+```{r, results='hold'}
+# Print neural network model summary
+ensemble.models$nnet
+
+# Neural network cross-validation plot
+n.neurons <- ensemble.models$nnet$results$size
+nnet.rmse <- ensemble.models$nnet$results$RMSE
+nnet.mae <- ensemble.models$nnet$results$MAE
+nnet.weight <- ensemble.models$nnet$results$decay
+
+# Plot the RMSE and MAE in a facet plot using facet_wrap
+p.nnet.cv <- data.frame(n.neurons, RMSE=nnet.rmse, MAE=nnet.mae, decay=nnet.weight) %>%
+  mutate(decay=as.character(decay)) %>%
+  pivot_longer(cols=c(RMSE, MAE), names_to="Metric", values_to="Value") %>%
+  mutate(Metric = ifelse(Metric=="MAE", "Mean Absolute Error", "Root-Mean Square Error")) %>%
+  # One line per value of alpha
+  ggplot(data=., mapping=aes(x=n.neurons, y=Value, color=decay)) +
+  # Facet the MAE and RMSE in separate plots
+  facet_wrap(Metric ~ ., scales="free") +
+  geom_point() +
+  geom_line(aes(group=decay)) +
+  theme_minimal() +
+  ggtitle("Neural Network Regression Cross-Validated Results") +
+  theme(plot.title=element_text(hjust=0.5),
+        axis.title=element_blank(),
+        panel.spacing = unit(2, "lines"))
+
+# Convert to interactive plotly
+ggplotly(p.nnet.cv) %>% 
+  layout(yaxis = list(title = "MAE", 
+                      titlefont = list(size = 12)),
+         xaxis = list(title = "# Neurons in Hidden Layer", 
+                      titlefont = list(size = 12)),
+         yaxis2 = list(title = "RMSE", 
+                       titlefont = list(size = 12)),
+         xaxis2 = list(title = "# Neurons in Hidden Layer", 
+                       titlefont = list(size = 12)),
+         autosize = F, width = 900, height = 400)
+
+rm(n.neurons, nnet.rmse, nnet.mae, nnet.weight, p.nnet.cv)
+```
+
+The optimal neural network includes three neurons in the hidden layer, each of which receive input from all 33 input nodes (31 ROIs, baseline age, and sex) and output onto the final prediction node. Here's a graphical representation of this `caret`-trained neural network:
+```{r, out.width="120%", out.height="100%"}
+par(mar = numeric(4))
+plotnet(ensemble.models$nnet, cex_val=0.8, pad_x=0.6, pos_col="firebrick3", neg_col="dodgerblue4",
+        circle_col="lightslategray", bord_col="lightslategray", alpha_val=0.4)
+```
+
+### Random forest final model
+
+```{r, results='hold'}
+# Print random forest model summary
+ensemble.models$ranger
+
+# Random forest cross-validation plot
+splitrule <- ensemble.models$ranger$results$splitrule
+numpred <- ensemble.models$ranger$results$mtry
+rf.rmse <- ensemble.models$ranger$results$RMSE
+rf.mae <- ensemble.models$ranger$results$MAE
+
+# Plot the RMSE and MAE in a facet plot using facet_wrap
+p.rf.cv <- data.frame(splitrule, RMSE=rf.rmse, MAE=rf.mae, numpred) %>%
+  pivot_longer(cols=c(RMSE, MAE), names_to="Metric", values_to="Value") %>%
+  mutate(Metric = ifelse(Metric=="MAE", "Mean Absolute Error", "Root-Mean Square Error")) %>%
+  # One line per value of alpha
+  ggplot(data=., mapping=aes(x=numpred, y=Value, color=splitrule)) +
+  # Facet the MAE and RMSE in separate plots
+  facet_wrap(Metric ~ ., scales="free") +
+  geom_point() +
+  geom_line(aes(group=splitrule)) +
+  theme_minimal() +
+  ggtitle("Random Forest Regression Cross-Validated Results") +
+  theme(plot.title=element_text(hjust=0.5),
+        axis.title=element_blank(),
+        panel.spacing = unit(2, "lines"))
+
+# Convert to interactive plotly
+ggplotly(p.rf.cv) %>% 
+  layout(yaxis = list(title = "MAE", 
+                      titlefont = list(size = 12)),
+         xaxis = list(title = "# Predictors in Decision Node", 
+                      titlefont = list(size = 12)),
+         yaxis2 = list(title = "RMSE", 
+                       titlefont = list(size = 12)),
+         xaxis2 = list(title = "# Predictors in Decision Node", 
+                       titlefont = list(size = 12)),
+         autosize = F, width = 900, height = 400)
+
+rm(splitrule, numpred, rf.rmse, rf.mae, p.rf.cv)
+```
+
+### Individual model performance
+
+These four models can be resampled and aggregated using the `resamples` function:
+
+```{r}
+# Resample the performance of this ensemble and report summary metrics for MAE, RMSE, and R2
+set.seed(127)
+ensemble.results <- resamples(ensemble.models)
+summary(ensemble.results)
+```
+
+
+Looking at the mean RMSE across sample iterations, the elastic net (`glmnet`) has the lowest RMSE; by contrast, the neural network has the highest RMSE. This reports the $R^2$ values as well, though as the models are non-linear regressions (aside from elastic net), this isn't a valid comparison metric in this instance.
+
+It's also useful to look at the regression correlation between these component models:
+
+```{r, results='hold'}
+cat("\nRoot-Mean Square Error Correlation\n")
+# Calculate model RMSE correlations
+modelCor(ensemble.results, metric="RMSE")
+cat("\n\nMean Absolute Error Correlation\n")
+# Calculate model MAE correlations
+modelCor(ensemble.results, metric="MAE")
+```
+
+kNN and random forest show very high error correlation (R>0.98). The other models also show relatively high error correlation; this is not ideal, since ensemble models are designed to counterbalance individual model error. The error can be visualized with confidence intervals using the `dotplot` function:
+
+```{r, out.width="800px", out.height="500px"}
+# Plot the four models' RMSE values
+p.rmse <- as.ggplot(dotplot(ensemble.results, metric="RMSE"))
+# Plot the four models' MAE values
+p.mae <- as.ggplot(dotplot(ensemble.results, metric="MAE")) 
+# Combine plots side-by-side
+grid.arrange(p.rmse, p.mae, ncol=2)
+```
+
+These four models show comparable RMSE confidence intervals. The elastic net regression model shows the lowest estimated RMSE, while the neural network shows the highest estimated RMSE. kNN showed the lowest MAE, while the neural network also showed the highest MAE. Despite the large error correlation between the models, I'll move forward to see if ensembling strengthens the overall predictions for the change in CDR-Sum of Boxes over time.
+
+## Model ensemble training and tuning  
+
+I will compare three different types of stacked ensembles:  
+
+1. Default `caretEnsemble`, stacked via generalized linear model-defined component model combination
+2. Stacked ensemble via `caretStack` using random forest-defined linear combination of component models
+3. Stacked ensemble via `caretStack` using elastic net-defined linear combination of component models
+
+### Genereralized linear ensemble 
+
+Starting with the basic `caretEnsemble` function, which by default employs a generalized linear model to combine the component models:
+```{r, results='hold'}
+set.seed(127)
+# Set trainControl --> 10-fold CV with parallel processing
+ensemble.control <- trainControl(method="repeatedcv", number=10, allowParallel = T)
+
+# Create stacked ensemble, optimizing for RMSE
+stacked.ensemble.glm <- caretEnsemble(ensemble.models, metric="RMSE", trControl=ensemble.control)
+summary(stacked.ensemble.glm)
+```
+
+The elastic net model (`glmnet`) shows the lowest RMSE of the four models. `caret` offers a function `autoplot` to create in-depth diagnostic plots for ensemble models:
+
+```{r}
+autoplot(stacked.ensemble.glm)
+```
+
+The top left graph shows the mean cross-validated RMSE per model, with the bars denoting RMSE standard deviation. The elastic net model shows the lowest RMSE of the four, and its RMSE is even lower than that of the full ensemble model (indicated by the red dashed line). The middle left plot shows the relative weight given to each model in a linear combination; the elastic net has the highest weighting, followed by ranger and neural network; kNN actually has a negative weight. 
+
+### Stacked ensembles 
+
+Stacked ensembles can also be constructed using `caretStack`, which applies user-defined linear combinations of each constituent model. I'll try one using a random forest combination of models and one using an elastic net combination of models.
+
+```{r}
+set.seed(127)
+# Create random forest-combined stacked ensemble
+stacked.ensemble.rf <- caretStack(ensemble.models, method = "rf", metric = "RMSE", trControl = ensemble.control)
+# Create elastic net-combined stacked ensemble
+stacked.ensemble.glmnet <- caretStack(ensemble.models, method="glmnet", metric="RMSE", trControl = ensemble.control)
+```
+
+The summary statistics for each model can be displayed:
+```{r, results='hold'}
+cat("\nStacked ensemble, generalized linear model:\n") 
+stacked.ensemble.glm 
+cat("\n\nStacked ensemble, random forest:\n")
+stacked.ensemble.rf
+cat("\n\nStacked ensemble, elastic net:\n")
+stacked.ensemble.glmnet
+```
+
+Each of these ensemble models show pretty comparable RMSE and MAE values. The RMSE is slighly lower for the glmnet-combined stack ensemble model, though this difference may not be significant and may not translate to the out-of-sample data. These three ensemble models (glm-, rf-, and glmnet-combined) will be used to predict annual change in CDR-Sum of Boxes in the same test dataset. Note: since the models were created with center and scale preprocessing specified, the test data does not need to be manually pre-processed.
+
+## Model predictions
+
+### Training data predictions
+
+```{r, results='hold'}
+# Predict based on training data for the four individual models
+# And the three stacked ensemble models
+glmnet.train <- predict.train(ensemble.models$glmnet)
+knn.train <- predict.train(ensemble.models$knn)
+nnet.train <- predict.train(ensemble.models$nnet)
+rf.train <- predict(ensemble.models$ranger)
+ensemble.glm.train <- predict(stacked.ensemble.glm)
+ensemble.glmnet.train <- predict(stacked.ensemble.glmnet)
+ensemble.rf.train <- predict(stacked.ensemble.rf)
+real.train <- original.train$CDRSB
+
+# Combine these predictions into a dataframe for easier viewing
+train.df <- do.call(cbind, list(elastic.net=glmnet.train, knn=knn.train, neural.net=nnet.train, random.forest=rf.train,
+                                ensemble.glm=ensemble.glm.train, ensemble.glmnet=ensemble.glmnet.train, 
+                                ensemble.rf=ensemble.rf.train, real.CDR=real.train)) %>% as.data.frame()
+
+datatable(train.df %>% mutate_if(is.numeric, function(x) round(x,4)) %>% select(real.CDR, elastic.net:ensemble.rf))
+```
+
+### Test data predictions
+
+```{r, results='hold'}
+# Predict based on UNSEEN test data for the four individual models
+# And the three stacked ensemble models
+real.test <- original.test$CDRSB  
+glmnet.test <- predict.train(ensemble.models$glmnet, newdata=original.test)
+knn.test <- predict.train(ensemble.models$knn, newdata=original.test)
+nnet.test <- predict.train(ensemble.models$nnet, newdata=original.test)
+rf.test <- predict.train(ensemble.models$ranger, newdata=original.test)
+ensemble.glm.test <- predict(stacked.ensemble.glm, newdata=original.test)
+ensemble.glmnet.test <- predict(stacked.ensemble.glmnet, newdata=original.test)
+ensemble.rf.test <- predict(stacked.ensemble.rf, newdata=original.test)
+
+# Combine these predictions into a dataframe for easier viewing
+test.df <- do.call(cbind, list(real.CDR=real.test, elastic.net=glmnet.test, knn=knn.test, neural.net=nnet.test, random.forest=rf.test,
+                               ensemble.glm=ensemble.glm.test, ensemble.glmnet=ensemble.glmnet.test, ensemble.rf=ensemble.rf.test)) %>% as.data.frame()
+
+datatable(test.df %>% mutate_if(is.numeric, function(x) round(x,4)))
+```
+
+### Predicted vs. real CDR-SoB comparison
+
+I want to compare these three ensemble models in terms of how their predictions relate to the actual CDR-SoB values in the training and testing data. I also want to compare these results with those obtained with the individual component models to see if constructing the ensemble confers a predictive advantage. First, I will visualize how the predicted values stack up to to the actual value for annual change in CDR-Sum of Boxes, in both the training and the test data: 
+
+```{r, results='hold'}
+# Create training data ggplot to be converted to interactive plotly plot
+p.train <- train.df %>%
+  # Reshape to facet on model
+  pivot_longer(cols=c(-real.CDR), names_to="Model", values_to="Prediction") %>%
+  mutate(Model=factor(Model, levels=c("ensemble.glmnet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
+  ggplot(data=., mapping=aes(x=real.CDR, y= Prediction, color=Model)) +
+  geom_point(alpha=0.3) +
+  facet_grid(.~Model, scales="free") +
+  ggtitle("Model Predictions for CDR Sum of Boxes Annual Change in Training Data") +
+  theme_minimal() +
+  theme(legend.position="none") +
+  ylab("Predicted CDR-SoB Change") +
+  xlab("Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+
+# Create test data ggplot to be converted to interactive plotly plot
+p.test <- test.df  %>%
+  # Reshape to facet on model
+  pivot_longer(cols=c(-real.CDR), names_to="Model", values_to="Prediction") %>%
+  mutate(Model=factor(Model, levels=c("ensemble.glmnet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
+  ggplot(data=., mapping=aes(x=real.CDR, y= Prediction, color=Model)) +
+  geom_point(alpha=0.3) +
+  facet_grid(.~Model, scales="free") +
+  ggtitle("Model Predictions for CDR Sum of Boxes Annual Change in Test Data") +
+  theme_minimal() +
+  theme(legend.position="none") +
+  ylab("Predicted CDR-SoB Change") +
+  xlab("Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+
+# Use ggplotly to create interactive HTML plots
+ggplotly(p.train, height=350, width=900)
+ggplotly(p.test, height=350, width=900) 
+```
+
+To quantify the association between real CDR-SoB values and model-predicted, I will use the $R^2$ and RMSE values through the `R2` and `RMSE` functions from `caret`:
+
+```{r, results='hold'}
+# Calculate the RMSE between real vs. predicted CDR-SoB values for training data
+# Combine into dataframe for easier viewing
+rmse.train <- data.frame(ensemble.glmnet=RMSE(ensemble.glmnet.train, real.train),
+                         ensemble.glm=RMSE(ensemble.glm.train, real.train),
+                         ensemble.rf=RMSE(ensemble.rf.train, real.train),
+                         elastic.net=RMSE(glmnet.train, real.train),
+                         knn=RMSE(knn.train, real.train),
+                         neural.net=RMSE(nnet.train, real.train),
+                         random.forest=RMSE(rf.train, real.train),
+                         Metric="Train_RMSE")
+
+# Calculate the RMSE between real vs. predicted CDR-SoB values for unseen test data
+# Combine into dataframe for easier viewing
+rmse.test <- data.frame(ensemble.glmnet=RMSE(ensemble.glmnet.test, real.test),
+                        ensemble.glm=RMSE(ensemble.glm.test, real.test),
+                        ensemble.rf=RMSE(ensemble.rf.test, real.test),
+                        elastic.net=RMSE(glmnet.test, real.test),
+                        knn=RMSE(knn.test, real.test),
+                        neural.net=RMSE(nnet.test, real.test),
+                        random.forest=RMSE(rf.test, real.test),
+                        Metric="Test_RMSE")
+
+# Calculate the R-squared between real vs. predicted CDR-SoB values for training data
+# Combine into dataframe for easier viewing
+r2.train <- data.frame(ensemble.glmnet=R2(ensemble.glmnet.train, real.train),
+                       ensemble.glm=R2(ensemble.glm.train, real.train),
+                       ensemble.rf=R2(ensemble.rf.train, real.train),
+                       elastic.net=R2(glmnet.train, real.train),
+                       knn=R2(knn.train, real.train),
+                       neural.net=R2(nnet.train, real.train),
+                       random.forest=R2(rf.train, real.train),
+                       Metric="Train_R2")
+
+# Calculate the R-squared between real vs. predicted CDR-SoB values for unseen test data
+# Combine into dataframe for easier viewing
+r2.test <- data.frame(ensemble.glmnet=R2(ensemble.glmnet.test, real.test),
+                      ensemble.glm=R2(ensemble.glm.test, real.test),
+                      ensemble.rf=R2(ensemble.rf.test, real.test),
+                      elastic.net=R2(glmnet.test, real.test),
+                      knn=R2(knn.test, real.test),
+                      neural.net=R2(nnet.test, real.test),
+                      random.forest=R2(rf.test, real.test),
+                      Metric="Test_R2")
+
+# Combine all four prediction dataframes into one table to compare and contrast
+# RMSE and R-squared across models
+do.call(plyr::rbind.fill, list(rmse.train, rmse.test, r2.train, r2.test)) %>%
+  pivot_longer(cols=c(-Metric), names_to="Model", values_to="Value") %>%
+  mutate(Metric = str_replace(Metric, "_", " ")) %>%
+  pivot_wider(id_cols="Model", names_from="Metric", values_from="Value") %>%
+  mutate_if(is.numeric, function(x) round(x,4)) %>%
+  kable(., booktabs=T) %>% kable_styling(full_width=F)
+```
+
+The predicted CDR-SoB change values from the random forest individual model were very similar to the actual observed values, yielding an $R^2$ of 0.94. However, comparing this with the $R^2$ of 0.16 in the test dataset suggests that the model may be overfit to the training data and does not perform well outside of that dataset. The same can be said of the other models, all of which exhibited substantially larger agreement between predictions and actual values in the training dataset than in the out-of-sample test dataset.
+
+
+```{r}
+# Compile RMSE and R2 results comparing real vs. predicted values for ensembles and component models
+overall.ensemble.results <- do.call(plyr::rbind.fill, list(rmse.train, rmse.test, r2.train, r2.test)) %>%
+  # Reshape to facet on metric -- i.e. RMSE or R2
+  pivot_longer(cols=c(-Metric), names_to="Model", values_to="Value") %>%
+  separate(Metric, into=c("Data", "Metric"), sep="_")
+
+p.ensemble.r2.rmse <- overall.ensemble.results %>%
+  mutate(Metric = ifelse(Metric=="RMSE", "Real vs. Predicted CDR-SoB RMSE", "Real vs. Predicted CDR-SoB R2")) %>%
+  mutate(Data=factor(Data, levels=c("Train", "Test")),
+         Model=factor(Model, levels=c("ensemble.glmnet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
+  ggplot(data=., mapping=aes(x=Data, y=Value, color=Model, group=Model)) +
+  geom_point() +
+  geom_line() +
+  theme_minimal() +
+  facet_wrap(Metric~., scales="free", nrow=1) +
+  theme(strip.text=element_text(size=12, face="bold"),
+        axis.title=element_blank())
+
+# Convert to interactive plotly plot, rename x/y axis titles
+ggplotly(p.ensemble.r2.rmse) %>% 
+  layout(yaxis = list(title = "R2", 
+                      titlefont = list(size = 12)),
+         xaxis = list(title = "Data Subset", 
+                      titlefont = list(size = 12)),
+         yaxis2 = list(title = "RMSE", 
+                       titlefont = list(size = 12)),
+         xaxis2 = list(title = "Data Subset", 
+                       titlefont = list(size = 12)),
+         autosize = F, width = 900, height = 400)
+```
+
+Re-name objects to have names specific to original dataset:
+```{r}
+# Rename relevant objects to have original data-specific names
+models.for.ensemble.OG <- ensemble.models
+model.metrics.OG <- overall.ensemble.results
+stacked.ensemble.glm.OG <- stacked.ensemble.glm
+stacked.ensemble.glmnet.OG <- stacked.ensemble.glmnet
+stacked.ensemble.rf.OG <- stacked.ensemble.rf
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Phase Four: Modeling (PCA Data)
+
+# Phase Five: Model Evaluation
+
+# Phase Six: Deployment

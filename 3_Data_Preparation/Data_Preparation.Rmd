@@ -374,9 +374,7 @@ rm(p.cooks)
 
 </div>
 
-
 All but one data point have relatively low Cook's distance values, while data point #224 has a relatively large Cook's distance. This suggests large residuals and leverage associated with this datapoint, which could distort model fitting and accuracy. Upon further examination of this instance:  
-
 
 <div class="fold s">
 ```{r}

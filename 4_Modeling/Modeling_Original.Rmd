@@ -46,7 +46,7 @@ library(RColorBrewer)
 library(colorspace)
 library(NeuralNetTools)
 library(gridExtra)
-library(ggplotify)
+#library(ggplotify)
 library(knitr)
 library(kableExtra)
 

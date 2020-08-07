@@ -1,5 +1,0 @@
-"0","# Display the UCSF & Scholl 2016 ROI Braak stage datatable"
-"0","roi.braak <- read.csv(""roi_braak_stages.csv"") %>% "
-"0","  mutate(ROI_Name = tolower(ROI_Name)) %>%"
-"0","  mutate(Hemisphere = ifelse(str_detect(ROI_Name, ""rh_|right""), ""Right"", ""Left""))"
-"0","datatable(roi.braak %>% select(-Base_Name))"
