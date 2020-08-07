@@ -1,0 +1,12 @@
+name: TauPET_Shiny_App_Notebook
+title: TauPET_Shiny_App_Notebook
+username:
+account: annie-bryant
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2650780
+bundleId: 3488440
+url: https://annie-bryant.shinyapps.io/TauPET_Shiny_App_Notebook/
+when: 1596829716.97613
+asMultiple: FALSE
+asStatic: FALSE

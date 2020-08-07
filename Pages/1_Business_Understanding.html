@@ -1541,23 +1541,13 @@ div.tocify {
 <h3>Requirements, Assumptions, Constraints</h3>
 <p>The only constraint is that I cannot directly share the full dataset as downloaded from ADNI, though I encourage anyone interested in gaining access to register for free at <a href="http://adni.loni.usc.edu/" class="uri">http://adni.loni.usc.edu/</a>. Instead, I will use the R library <code>fakeR</code> (<a href="https://cran.r-project.org/web/packages/fakeR/vignettes/my-vignette.html">vignette</a>) to simulate the two datasets I will access from ADNI to publish in my GitHub repository, so that the interested reader can follow along with consistent data structures.</p>
 </div>
-<div id="terminology" class="section level3">
-<h3>Terminology</h3>
-<p>Here are some terms used throughout this project:</p>
-<ul>
-<li>Braak</li>
-<li>Tau</li>
-<li>PET</li>
-<li>Ensemble</li>
-</ul>
-</div>
 </div>
 <div id="determine-data-mining-goals" class="section level2">
 <h2>Determine Data Mining Goals</h2>
 <p>My goal in this analysis is to develop a model that can predict change in cognitive status through some combination (linear or nonlinear) of multiple brain regions, each of which exhibit a different change in tau-PET uptake. In doing this, I also hope to identify which region(s) of the brain are most prone to accumulation of tau NFT pathology as measured via PET, and in turn, which region(s) can best predict cognitive decline.</p>
 <div id="data-mining-success-criteria" class="section level3">
 <h3>Data Mining Success Criteria</h3>
-<p>The target feature in this project will be a continuous measurement representing a score on a cognitive assessment score (CDR Sum of Boxes – see <a href="https://anniegbryant.github.io/DA5030_Final_Project/Pages/2_Data_Understanding.html">Data Understanding</a>). Therefore, models will be evaluated based on their root mean squared error (RMSE) and the R<span class="math inline">\(^2\)</span> between predicted versus real cognitive scores. I have set a benchmark of success at R<span class="math inline">\(^2\)</span> &gt; 0.5, meaning the model explains at least 50% of variance seen in cognitive score changes. This is an ambitious threshold, as cognitive status is multifactorial and certainly modulated by more than regional tau accumulation, but this figure will distinguish stronger versus weaker predictive models.</p>
+<p>The target feature in this project will be a continuous measurement representing a score on a cognitive assessment score (CDR Sum of Boxes – see <a href="https://anniegbryant.github.io/DA5030_Final_Project/Pages/2_Data_Understanding.html#Data_overview10">Data Understanding</a>). Therefore, models will be evaluated based on their root mean squared error (RMSE) and the R<span class="math inline">\(^2\)</span> between predicted versus real cognitive scores. I have set a benchmark of success at R<span class="math inline">\(^2\)</span> &gt; 0.5, meaning the model explains at least 50% of variance seen in cognitive score changes. This is an ambitious threshold, as cognitive status is multifactorial and certainly modulated by more than regional tau accumulation, but this figure will distinguish stronger versus weaker predictive models.</p>
 <p><a class="et_pb_button" title="Previous page" href="https://anniegbryant.github.io/DA5030_Final_Project/">Previous page: Project Home</a> <a class="et_pb_button" title="Next page" href="https://anniegbryant.github.io/DA5030_Final_Project/Pages/2_Data_Understanding.html">Next page: Data Understanding</a></p>
 </div>
 </div>
