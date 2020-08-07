@@ -79,12 +79,11 @@ tau.df <- read.csv("../../ADNI_Data/Raw_Data/UCBERKELEYAV1451_PVC_05_12_20.csv",
 tau.df$EXAMDATE <- as.Date(as.character(tau.df$EXAMDATE), format="%m/%d/%Y")
 ```
 
-Overview of the tau dataset using `str`:
-<div class="fold o">
-```{r}
-str(tau.df)
+
+Those without access to ADNI to download the same dataset can use the simulated dataset included in this GitHub repo main directory, "Simulated_ADNI_TauPET.csv".
+```{r, eval=F}
+tau.df <- read.csv("../Simulated_ADNI_TauPET.csv")
 ```
-</div>
 
 
 I'll filter this tau-PET data to contain only subjects with 2+ tau-PET scans, and omit irrelevant columns: 
@@ -134,7 +133,7 @@ Now that regional SUVR is properly standardized, the next step is to select brai
 
 ```{r}
 # Display the UCSF & Scholl 2016 ROI Braak stage datatable
-roi.braak <- read.csv("roi_braak_stages.csv") %>% 
+roi.braak <- read.csv("../RData/roi_braak_stages.csv") %>% 
   mutate(ROI_Name = tolower(ROI_Name)) %>%
   mutate(Hemisphere = ifelse(str_detect(ROI_Name, "rh_|right"), "Right", "Left"))
 datatable(roi.braak %>% select(-Base_Name))
@@ -147,9 +146,9 @@ The following plots show the spatial relationship of the Braak stages in the bra
 <div class="fold s">
 ```{r, results='hold'}
 # Load dataframes that link the ADNI tau-PET ROIs with nomenclature used in the ggseg package
-ggseg.aparc <- read_excel("ggseg_roi.xlsx", sheet=1) %>%
+ggseg.aparc <- read_excel("../RData/ggseg_roi.xlsx", sheet=1) %>%
   mutate(Braak=as.numeric(as.roman(Braak)))
-ggseg.aseg <- read_excel("ggseg_roi.xlsx", sheet=2) %>%
+ggseg.aseg <- read_excel("../RData/ggseg_roi.xlsx", sheet=2) %>%
   mutate(Braak=as.numeric(as.roman(Braak)))
 
 # Plot the Desikan-Killiany cortical parcellation atlas
@@ -265,6 +264,13 @@ I am interested in the following features in this dataset:
 subj.info <- read.csv("../../ADNI_Data/Raw_Data/ADNIMERGE.csv", stringsAsFactors = T, na.strings="")
 subj.info <- subj.info %>% select(RID, VISCODE, AGE, PTGENDER, CDRSB)
 ```
+
+Those without access to ADNI to download the same dataset can use the simulated dataset included in this GitHub repo main directory, "Simulated_ADNI_cognitive_scores.csv".
+```{r, eval=F}
+subj.info <- read.csv("../Simulated_ADNI_cognitive_scores.csv") %>% 
+  select(RID, VISCODE, AGE, PTGENDER, CDRSB)
+```
+
 
 ## Merged tau-PET + cognitive data
 
@@ -728,8 +734,10 @@ post.pca <- post.pca %>% select(-Sex)
 
 I'll save these prepared datasets to an .RData file for modeling:
 ```{r}
-save(annual.changes, post.pca, file="../Prepared_Data.RData")
+save(annual.changes, post.pca, file="../RData/Prepared_Data.RData")
 ```
+
+Note: I am not including the RData in my GitHub repo as it contains real ADNI data. The data contained within the RData files can be recreated using the simulated datasets by going through the code chunks in this script.
 
 <a class="et_pb_button" title="Previous page" href="https://anniegbryant.github.io/DA5030_Final_Project/2_Data_Understanding.html">Previous page: Data Understanding</a>
 <a class="et_pb_button" title="Next page" href="https://anniegbryant.github.io/DA5030_Final_Project/Pages/4_Modeling_Original.html">Next page: Modeling</a>

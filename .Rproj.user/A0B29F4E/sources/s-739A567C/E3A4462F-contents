@@ -118,7 +118,7 @@ p.rmse <- model.metrics.full %>%
         legend.position = "bottom")
 
 # Convert to plotly interactive visualizatoin
-ggplotly(p.rmse, width=900, height=300)
+ggplotly(p.rmse, width=700, height=300)
 
 p.r2 <- model.metrics.full %>%
   # Plot the R2 for test data predictions
@@ -137,7 +137,7 @@ p.r2 <- model.metrics.full %>%
         plot.title=element_text(hjust=0.5),
         strip.text = element_text(size=12, face="bold"),
         legend.position = "bottom")
-ggplotly(p.r2, width=900, height=300)
+ggplotly(p.r2, width=700, height=300)
 ```
 </div>
 
@@ -210,7 +210,7 @@ p.importance <- og.importance %>%
         strip.text = element_text(size=14))
 
 # Convert to interactive plotly visualization
-ggplotly(p.importance, width=900, height=800) %>%
+ggplotly(p.importance, width=800, height=700) %>%
   layout(xaxis = list(title = "Model Term", 
                       titlefont = list(size = 14)), 
          yaxis=list(title="Importance", 
@@ -247,7 +247,7 @@ p.enet <- og.importance %>%
         plot.title=element_text(hjust=0.5))
 
 # tooltip specifies only to show the label (term), y (coefficient), and fill (importance) upon cursor hover
-ggplotly(p.enet, tooltip=c("label", "y", "fill"))
+ggplotly(p.enet, tooltip=c("label", "y", "fill"), width=700, height=400)
 ```
 
 The most important features bookend the x-axis, and also have the largest magnitude of coefficients. It's pretty surprising to note that the entorhinal cortex and hippocampus have two of the most negative coefficients of all the variables; a negative coefficient means that rate of tau accumulation in that ROI is negatively associated with CDR-Sum of Boxes score increase. The entorhinal cortex and hippocampus are two of the first gray matter regions to develop tau pathology in Alzheimer's Disease according to the Braak staging paradigm, so I would expect that increased tau accumulation in these regions would be associated with *increased* CDR-Sum of Boxes scores, not a decrease (note: a higher CDR-Sum of Boxes score means greater cognitive impairment). One possible interpretation could be related to the temporal gap between tau neurofibrillary tangle accumulation and cognitive decline as described above; though further assessment would be warranted to interpret the implications of these negative coefficients.  
@@ -293,7 +293,7 @@ p.roi.imp <- og.importance %>%
         text=element_text(family="calibri"))
 
 # Convert to interactive plotly visualization
-ggplotly(p.roi.imp, dynamicTicks = T, tooltip=c("label", "fill"), width=900, height=300)
+ggplotly(p.roi.imp, dynamicTicks = T, tooltip=c("label", "fill"), width=700, height=300)
 ```
 </div>
 
@@ -327,7 +327,7 @@ p.roi.coef <- og.importance %>%
         text=element_text(family="calibri"))
 
 # Convert to interactive plotly visualization
-ggplotly(p.roi.coef, dynamicTicks = T, tooltip=c("label", "fill"), width=900, height=300)
+ggplotly(p.roi.coef, dynamicTicks = T, tooltip=c("label", "fill"), width=700, height=300)
 ```
 </div>
 

@@ -1,0 +1,3 @@
+"0","set.seed(127)"
+"0","tau.sim <- simulate_dataset(tau.df, digits=6, stealth.level=2, ignore=c(""RID"", ""VISCODE"", ""VISCODE2"", ""EXAMDATE"")) "
+"0","write.csv(tau.sim, ""../Simulated_ADNI_TauPET.csv"", row.names = F)"

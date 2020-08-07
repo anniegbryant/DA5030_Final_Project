@@ -71,6 +71,8 @@ load("../Model_Results.RData")
 load("../Variable_Importance.RData")
 ```
 
+Note: I am not including the RData in my GitHub repo as it contains real ADNI data. The data contained in the .RData files can be recreated by following along beginning with the [Data Understanding](https://anniegbryant.github.io/DA5030_Final_Project/2_Data_Understanding.html) page.
+
 
 ### Data reshaping
 
@@ -149,7 +151,7 @@ mygraph <- graph_from_data_frame(edges, vertices=vertices)
 
 Save this data to an .RData file to be loaded into the Shiny app:
 ```{r}
-save(original.roi.corr.coef, og.importance, original.roi.corr.results, ggseg.aparc, ggseg.aseg, rois, vertices, mygraph, file="shiny_data.RData")
+save(original.roi.corr.coef, og.importance, original.roi.corr.results, ggseg.aparc, ggseg.aseg, rois, vertices, mygraph, file="../RData/shiny_data.RData")
 ```
 
 

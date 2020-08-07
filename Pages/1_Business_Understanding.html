@@ -1524,72 +1524,42 @@ div.tocify {
     margin-left: -40px;
 }
 </style>
-<script>$(document).ready(function() {
-
-  $chunks = $('.fold');
-
-  $chunks.each(function () {
-
-    // add button to source code chunks
-    if ( $(this).hasClass('s') ) {
-      $('pre.r', this).prepend("<div class=\"showopt\">Show Code</div><br style=\"line-height:22px;\"/>");
-      $('pre.r', this).children('code').attr('class', 'folded');
-    }
-
-    // add button to output chunks
-    if ( $(this).hasClass('o') ) {
-      $('pre:not(.r)', this).has('code').prepend("<div class=\"showopt\">Show Output</div><br style=\"line-height:22px;\"/>");
-      $('pre:not(.r)', this).children('code:not(r)').addClass('folded');
-
-      // add button to plots
-      $(this).find('img').wrap('<pre class=\"plot\"></pre>');
-      $('pre.plot', this).prepend("<div class=\"showopt\">Show Plot</div><br style=\"line-height:22px;\"/>");
-      $('pre.plot', this).children('img').addClass('folded');
-
-    }
-  });
-
-  // hide all chunks when document is loaded
-  $('.folded').css('display', 'none')
-
-  // function to toggle the visibility
-  $('.showopt').click(function() {
-    var label = $(this).html();
-    if (label.indexOf("Show") >= 0) {
-      $(this).html(label.replace("Show", "Hide"));
-    } else {
-      $(this).html(label.replace("Hide", "Show"));
-    }
-    $(this).siblings('code, img').slideToggle('fast', 'swing');
-  });
-});</script>
-<div id="test" class="section level2">
-<h2>Test</h2>
-<p>The following packages are required for analysis and visualization in this page:</p>
-<pre class="r"><code># General data wrangling
-library(tidyverse)
-library(DT)
-library(readxl)
-
-# Visualization
-library(plotly)
-library(colorRamps)
-library(RColorBrewer)
-library(colorspace)
-library(ggseg)
-library(forcats)
-
-# Modeling
-library(glmnet)
-library(caret)
-library(ranger)
-
-# Ensemble building
-library(caretEnsemble)
-
-# Correlations
-library(Hmisc)</code></pre>
+<p><a class="et_pb_button" title="Project Home" href="https://anniegbryant.github.io/DA5030_Final_Project/">Project Home</a></p>
+<div id="determining-business-objectives" class="section level2">
+<h2>Determining Business Objectives</h2>
+<p>For my final project for DA5030 “Data Mining and Machine Learning”, my objective is to leverage neuroimaging-based data to predict cognitive decline in subjects along the cognitive spectrum from cognitively unimpaired to severe dementia. The goal is to identify specific brain regions that, when burdened by Alzheimer’s Disease-related pathology, confer predictive power onto cognitive status, measured via neuropsychological assessment. Ideally, I would like to identify the regions of interest (ROIs) in the brain that change the most with decreasing cognitive ability and to refine a set of ROIs that collectively predict changes to cognitive assessment scores. This will be (tentatively) regarded as a success if one or more ROIs can explain more than 50% variance in cognitive assessment scores (i.e. R<span class="math inline">\(^2\)</span> &gt; 0.5).</p>
+</div>
+<div id="assessing-the-situation" class="section level2">
+<h2>Assessing the Situation</h2>
+<p>I will focus on one specific form of neuroimaging: Positron Emission Tomography (PET). PET imaging enables the visualization of specific molecular substrates in the brain through the use of radioactively-labeled tracers that bind the target substrate. In this case, I have chosen to focus on PET that binds to the protein tau, which exhibits characteristic misfolding in Alzheimer’s Disease (AD). Misfolded tau not only loses its normal function, but it also aggregates into intracellular neurofibrillary tangles (NFTs) that can disrupt neuronal signaling and promote neurodegeneration. This phenomenon typically follows an archetypical spreading pattern beginning in the entorhinal cortex, progressing out to the hippocampus and amygdala, and then spreading out beyond the medial temporal lobe to the limbic system and onto the neocortex. This staging pattern is well-defined following the seminal paper published by <a href="https://pubmed.ncbi.nlm.nih.gov/1759558/">Braak &amp; Braak in 1991</a>; the stages of tau NFT pathology progression are now known as the Braak stages. There are six stages of tau NFT progression in total.</p>
+<p>Such staging has traditionally only been possible at autopsy, as it requires careful immunohistochemical staining of several brain regions by an experienced neuropathologist. However, recent years have seen the development of tau-PET tracers that are specific to misfolded NFT tau. One tracer in particular, 18F-AV-1451, has become widely-used in the last few years as a non-invasive biomarker to measure regional accumulation of tau in the human brain. Tau-PET uptake correlates well with the typical postmortem Braak staging patterns (<a href="https://pubmed.ncbi.nlm.nih.gov/26936940/">Schwarz et al. 2016</a>) as well as cognitive status (<a href="https://www.frontiersin.org/articles/10.3389/fneur.2019.00486/full">Zhao et al. 2019</a>). Recent studies have utilized machine learning algorithms with tau-PET neuroimaging, as well as other (relatively) non-invasive biomarkers including amyloid-beta PET and cerebrospinal fluid (CSF) protein measurements, to collectively predict onset of dementia (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5696044/">Mishra et al. 2017</a>) or to predict the spread of tau NFT pathology in the brain (Vogel et al. <a href="https://onlinelibrary.wiley.com/doi/full/10.1002/hbm.24401">2019,</a> <a href="https://www.nature.com/articles/s41467-020-15701-2">2020</a>). However, longitudinal analysis of tau-PET accumulation and its relationship to cognition remains relatively unexplored as of yet, largely owing to the recentness of tau-PET tracer development.</p>
+<div id="resource-inventory" class="section level3">
+<h3>Resource Inventory</h3>
+<p>Through my role as a research assistant at the MassGeneral Institute for Neurogenerative Disease, I have worked with the Alzheimer’s Disease Neuroimaging Initiative (ADNI) data repository previously. ADNI is a tremendous resource for imaging-based and molecular biomarker data acquired from thousands of research participants across the country (see <a href="https://anniegbryant.github.io/DA5030_Final_Project/Pages/Acknowledgments.html">Acknowledgments</a> for more information). In 2016, ADNI incorporated 18F-AV-1451 tau-PET neuroimaging into its imaging protocol, and has since amassed well over a thousand tau-PET scans since then. Researchers at UCSF have processed many of these images and quantified regional uptake of the tau-PET tracer, and have generously shared their regional tau-PET data for ADNI collaborators to access. ADNI has also compiled cognitive assessment scores for each subject. I will utilize these two resources to develop individual regression models as well as an ensemble model to predict cognitive decline as a function of pathological tau NFT accumulation throughout the brain.</p>
+</div>
+<div id="requirements-assumptions-constraints" class="section level3">
+<h3>Requirements, Assumptions, Constraints</h3>
+<p>The only constraint is that I cannot directly share the full dataset as downloaded from ADNI, though I encourage anyone interested in gaining access to register for free at <a href="http://adni.loni.usc.edu/" class="uri">http://adni.loni.usc.edu/</a>. Instead, I will use the R library <code>fakeR</code> (<a href="https://cran.r-project.org/web/packages/fakeR/vignettes/my-vignette.html">vignette</a>) to simulate the two datasets I will access from ADNI to publish in my GitHub repository, so that the interested reader can follow along with consistent data structures.</p>
+</div>
+<div id="terminology" class="section level3">
+<h3>Terminology</h3>
+<p>Here are some terms used throughout this project:</p>
+<ul>
+<li>Braak</li>
+<li>Tau</li>
+<li>PET</li>
+<li>Ensemble</li>
+</ul>
+</div>
+</div>
+<div id="determine-data-mining-goals" class="section level2">
+<h2>Determine Data Mining Goals</h2>
+<p>My goal in this analysis is to develop a model that can predict change in cognitive status through some combination (linear or nonlinear) of multiple brain regions, each of which exhibit a different change in tau-PET uptake. In doing this, I also hope to identify which region(s) of the brain are most prone to accumulation of tau NFT pathology as measured via PET, and in turn, which region(s) can best predict cognitive decline.</p>
+<div id="data-mining-success-criteria" class="section level3">
+<h3>Data Mining Success Criteria</h3>
+<p>The target feature in this project will be a continuous measurement representing a score on a cognitive assessment score (CDR Sum of Boxes – see <a href="https://anniegbryant.github.io/DA5030_Final_Project/Pages/2_Data_Understanding.html">Data Understanding</a>). Therefore, models will be evaluated based on their root mean squared error (RMSE) and the R<span class="math inline">\(^2\)</span> between predicted versus real cognitive scores. I have set a benchmark of success at R<span class="math inline">\(^2\)</span> &gt; 0.5, meaning the model explains at least 50% of variance seen in cognitive score changes. This is an ambitious threshold, as cognitive status is multifactorial and certainly modulated by more than regional tau accumulation, but this figure will distinguish stronger versus weaker predictive models.</p>
 <p><a class="et_pb_button" title="Previous page" href="https://anniegbryant.github.io/DA5030_Final_Project/">Previous page: Project Home</a> <a class="et_pb_button" title="Next page" href="https://anniegbryant.github.io/DA5030_Final_Project/Pages/2_Data_Understanding.html">Next page: Data Understanding</a></p>
+</div>
 </div>
 
 
