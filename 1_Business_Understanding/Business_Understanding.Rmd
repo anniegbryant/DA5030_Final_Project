@@ -11,6 +11,17 @@ number_sections: true
 theme: lumen
 ---
 
+```{css toc-content, echo = FALSE}
+#TOC {
+  left: 10px;
+  margin: 30px 0px 0px 10px;
+}
+
+.main-container {
+    margin-left: -40px;
+}
+```
+
 <script src="../hideOutput.js"></script>
 
 ## Test

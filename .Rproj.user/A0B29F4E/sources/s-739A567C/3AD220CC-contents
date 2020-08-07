@@ -1,0 +1,160 @@
+---
+title: "Model Deployment Prep"
+output: 
+  html_document:
+    css: "../my_style.css"
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+toc_depth: 3
+number_sections: true
+theme: lumen
+---
+
+```{css toc-content, echo = FALSE}
+#TOC {
+  left: 10px;
+  margin: 30px 0px 0px 10px;
+}
+
+.main-container {
+    margin-left: -40px;
+}
+```
+
+<script src="../hideOutput.js"></script>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<a class="et_pb_button" title="Project Home" href="https://anniegbryant.github.io/DA5030_Final_Project/">Project Home</a> 
+
+All packages used for analysis and figures in this page:
+
+<div class="fold s">
+```{r}
+# General data wrangling
+library(tidyverse)
+library(DT)
+library(readxl)
+
+# Visualization
+library(plotly)
+library(colorRamps)
+library(RColorBrewer)
+library(colorspace)
+library(ggseg)
+library(forcats)
+library(igraph)
+
+# Modeling
+library(glmnet)
+library(caret)
+library(ranger)
+
+# Ensemble building
+library(caretEnsemble)
+
+# Correlations
+library(Hmisc)
+```
+</div>
+
+## Data preparation
+
+### Load data
+
+Load the models constructed in Modeling:
+```{r}
+load("../Model_Results.RData")
+load("../Variable_Importance.RData")
+```
+
+
+### Data reshaping
+
+Combine original train + original test into full df:
+```{r}
+original.full <- plyr::rbind.fill(original.train, original.test)
+```
+
+
+Pivot the original ROI configuration dataset from wide to long (preparation for correlation matrix), omitting age at baseline and sex:
+
+```{r}
+# Pivot wide --> long
+original.roi.long <- original.full %>%
+  select(-Age_Baseline, -Sex_Male) %>%
+  pivot_longer(cols=c(-CDRSB), names_to="ROI", values_to="SUVR_Change")
+```
+
+
+### Pairwise correlations
+
+Calculate pairwise ROI tau-PET SUVR correlations using `rcorr` function from the `Hmisc` package:
+```{r}
+# Convert tau-PET regional SUVR change to a matrix
+original.roi.mat <- original.full %>%
+  select(-Age_Baseline, -Sex_Male, -CDRSB) %>%
+  as.matrix()
+
+# Use rcorr from Hmisc to calculate Pearson correlation coefficients ($r)
+original.roi.corr <- rcorr(original.roi.mat)
+original.roi.corr.coef <- original.roi.corr$r
+```
+
+
+For visualization, it's easier to then convert this correlation matrix from wide to long. I'll utilize the `pivot_longer` function from the `tidyr` package to reshape the dataframes for the correlation coefficients.
+
+```{r}
+# Correlation coefficient (Pearson)
+original.roi.corr.coef.long <- as.data.frame(original.roi.corr.coef) %>%
+  # Cast rownames as a dataframe column
+  rownames_to_column(var="ROI1") %>%
+  # Pivot data wide --> long
+  pivot_longer(cols=c(-ROI1), names_to="ROI2", values_to="Pearson_Corr") %>%
+  # Omit correlations between the same ROI, which are always equal to 1
+  filter(ROI1 != ROI2) %>%
+  # Omit instances where the two ROIs are the same, just in different columns
+  mutate(ROI12 = ifelse(ROI1<ROI2, paste(ROI1, ROI2, sep="_"),
+                        paste(ROI2, ROI1, sep="_"))) %>%
+  distinct(ROI12, .keep_all=T) %>%
+  select(-ROI12)
+
+
+# Save the final long-format dataframe
+original.roi.corr.results <- original.roi.corr.coef.long
+```
+
+
+### iGraph preparation
+
+```{r}
+# Edges are defined as cortical lobe --> specific ROI connection
+edges <- read.csv("tau_roi_nodes.csv") %>% distinct()
+# ROIs don't include the origin --> cortical lobe connection
+rois <- edges %>% filter(!(to %in% c("Cingulate", "Frontal", "Insula",
+                                     "Occipital", "Parietal", "Temporal")))
+
+# Create a dataframe of vertices, one line per object in the ROI cortical lobe hierarchy
+vertices = data.frame(name = unique(c(as.character(edges$from), as.character(edges$to))))
+vertices$group <- edges$from[match(vertices$name, edges$to)]
+
+# Create an igraph object
+mygraph <- graph_from_data_frame(edges, vertices=vertices)
+```
+
+### Save data
+
+Save this data to an .RData file to be loaded into the Shiny app:
+```{r}
+save(original.roi.corr.coef, og.importance, original.roi.corr.results, ggseg.aparc, ggseg.aseg, rois, vertices, mygraph, file="shiny_data.RData")
+```
+
+
+## App deployment
+The Shiny app can be viewed [here.]( https://annie-bryant.shinyapps.io/AV1451_TauPET_Uptake_Change_Analysis/)
+
+
+<a class="et_pb_button" title="Previous page" href="https://anniegbryant.github.io/DA5030_Final_Project/5_Model_Evaluation.html">Previous page: Model Evaluation</a>

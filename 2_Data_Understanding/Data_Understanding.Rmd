@@ -11,6 +11,17 @@ number_sections: true
 theme: lumen
 ---
 
+```{css toc-content, echo = FALSE}
+#TOC {
+  left: 10px;
+  margin: 30px 0px 0px 10px;
+}
+
+.main-container {
+    margin-left: -40px;
+}
+```
+
 <script src="../hideOutput.js"></script>
 
 ```{r setup, include=FALSE}
@@ -325,7 +336,7 @@ Most of the inferior cerebellum gray ROIs actually have SUVRs around 1.25. I'll 
 
 The longitudinal subject demographic and cognitive assessment dataset was downloaded as a CSV from the ADNI Study Data repository, located at Study Data/Study Info/Key ADNI tables merged into one table. This CSV file contains 14,816 rows and 113 columns. This includes many subjects with multiple follow-up visits. Columns include (anonymized) subject demographic information such as age, sex, race, and marriage status. Note: ADNI data is freely accessible to all registered users. Please see my [Acknowledgments page](https://anniegbryant.github.io/DA5030_Final_Project/Pages/Acknowledgments.html) for more information about ADNI and its contributors.
 
-This project will one key target feature in this dataset: **Clinical Dementia Rating (CDR) Sum of Boxes**. The CDR scale was initially developed in 1982 at the Washington University as a metric of clinical dementia progression [(Hughes et al., 1982)](https://pubmed.ncbi.nlm.nih.gov/7104545/). This cognitive test measures impairment in six cognitive domains: memory, orientation, judgment and problem solving, community affairs, home and hobbies, and personal care [(Morris 1991)](https://n.neurology.org/content/43/11/2412.2). Each of these categories is scored on a five-point scale as follows: 
+This project will one key target feature in this dataset: **Clinical Dementia Rating (CDR) Sum of Boxes**. The CDR scale was initially developed in 1982 at the Washington University as a metric of clinical dementia progression [(Hughes et al., 1982)](https://pubmed.ncbi.nlm.nih.gov/7104545/). This cognitive test measures impairment in six cognitive domains: memory, orientation, judgment and problem solving, community affairs, home and hobbies, and personal care [(Morris 1991)](https://n.neurology.org/content/43/11/2412.2). Each of these categories is scored on a three-point scale as follows: 
 
 * **0** = no impairment
 * **0.5** = questionable

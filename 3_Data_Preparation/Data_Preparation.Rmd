@@ -11,6 +11,17 @@ number_sections: true
 theme: lumen
 ---
 
+```{css toc-content, echo = FALSE}
+#TOC {
+  left: 10px;
+  margin: 30px 0px 0px 10px;
+}
+
+.main-container {
+    margin-left: -40px;
+}
+```
+
 <script src="../hideOutput.js"></script>
 
 ```{r setup, include=FALSE}
@@ -61,15 +72,12 @@ library(ggsegExtra)
 
 First, I'll load the partial volume-corrected regional tau-PET data from ADNI. For more info on this dataset, please see [Data Understanding](https://anniegbryant.github.io/DA5030_Final_Project/Pages/2_Data_Understanding.html) and [Acknowledgments](https://anniegbryant.github.io/DA5030_Final_Project/Pages/Acknowledgments.html).
 
-<div class="fold s">
 ```{r}
 tau.df <- read.csv("../../ADNI_Data/Raw_Data/UCBERKELEYAV1451_PVC_05_12_20.csv", stringsAsFactors = T)
 
 # Cast exam date as a Date
 tau.df$EXAMDATE <- as.Date(as.character(tau.df$EXAMDATE), format="%m/%d/%Y")
 ```
-
-</div>
 
 Overview of the tau dataset using `str`:
 <div class="fold o">
@@ -98,7 +106,7 @@ str(tau.df)
 
 ### SUVR normalization
 
-As shown in [Data Understanding](https://anniegbryant.github.io/DA5030_Final_Project/Pages/2_Data_Understanding.html#htmlwidget-aee61fc0845b1248fae6), the ROIs are not precisely standardized to the inferior cerebellum gray matter SUVR. I will re-standardize each region's ROI SUVR values here.
+As shown in [Data Understanding](https://anniegbryant.github.io/DA5030_Final_Project/Pages/2_Data_Understanding.html#ROI_Normalization), the ROIs are not precisely standardized to the inferior cerebellum gray matter SUVR. I will re-standardize each region's ROI SUVR values here.
 
 
 <div class="fold s">
@@ -145,12 +153,17 @@ ggseg.aseg <- read_excel("ggseg_roi.xlsx", sheet=2) %>%
   mutate(Braak=as.numeric(as.roman(Braak)))
 
 # Plot the Desikan-Killiany cortical parcellation atlas
-p.aparc <- data.frame(region=ggseg.aparc$ggseg_ROI, 
-                 Braak=as.character(ggseg.aparc$Braak), 
-                 stringsAsFactors = F) %>%
+p.aparc <-  dk %>% filter(hemi=="right") %>% 
+  unnest(ggseg) %>% 
+  select(region) %>% 
+  na.omit() %>% 
+  distinct() %>%
+  left_join(., ggseg.aparc, by=c("region"="ggseg_ROI")) %>%
+  mutate(Braak = as.character(Braak)) %>%
   # ggseg: dk=Desikan-Killiany atlas, fill by Braak region, label by ROI name
   ggseg(atlas="dk", mapping=aes(fill=Braak, label=region)) +
-  scale_fill_discrete(breaks = c("1", "3", "4", "5", "6")) +
+  scale_fill_manual(values=c("#F8766D", "#A3A617", "#00BF7D",
+                             "#00B0F6", "#E76BF3"), na.value="gray80") +
   theme(axis.text.y=element_blank(),
         axis.text.x = element_text(family="calibri"),
         axis.title.x = element_text(family="calibri"),
@@ -160,11 +173,16 @@ p.aparc <- data.frame(region=ggseg.aparc$ggseg_ROI,
 ggplotly(p.aparc, tooltip = c("fill", "label"), width=800, height=300)
 
 # Plot the FreeSurfer subcortical segmentation atlas
-p.aseg <- data.frame(region=ggseg.aseg$ggseg_ROI,
-  Braak=as.character(ggseg.aseg$Braak), stringsAsFactors = F) %>%
+p.aseg <- aseg %>% filter(hemi=="right") %>% 
+  unnest(ggseg) %>% 
+  select(region) %>% 
+  na.omit() %>% 
+  distinct() %>%
+  left_join(., ggseg.aseg, by=c("region"="ggseg_ROI")) %>%
+  mutate(Braak = as.character(Braak)) %>%
   # ggseg: aseg=subcortical segmentation atlas, fill by Braak region, label by ROI name
   ggseg(atlas="aseg", mapping=aes(fill=Braak, label=region)) +
-  scale_fill_discrete(breaks = c("2", "3")) +
+  scale_fill_manual(values=c("deeppink", "#A3A617"), na.value="gray80") +
   theme(axis.text.y=element_blank(),
         axis.text.x = element_text(family="calibri"),
         axis.title.x = element_text(family="calibri"),
@@ -280,7 +298,7 @@ cat("\nNumber of longitudinal tau-PET scans with accompanying cognitive data: **
 ```
 </div>
 
-As it turns out, only `r nrow(full.df)` of the original 593 tau-PET scans had corresponding cognitive assessments. This leaves `r nrow(full.df)` unique PET scan datapoints for `rlength(unique(full.df$RID))` subjects.  
+As it turns out, only `r nrow(full.df)` of the original 593 tau-PET scans had corresponding cognitive assessments. This leaves `r nrow(full.df)` unique PET scan datapoints for `r length(unique(full.df$RID))` subjects.  
 
 ### Rate of change calculation
 

@@ -11,6 +11,17 @@ number_sections: true
 theme: lumen
 ---
 
+```{css toc-content, echo = FALSE}
+#TOC {
+  left: 10px;
+  margin: 30px 0px 0px 10px;
+}
+
+.main-container {
+    margin-left: -40px;
+}
+```
+
 <script src="../hideOutput.js"></script>
 
 ```{r setup, include=FALSE}
@@ -481,7 +492,48 @@ datatable(test.df %>% mutate_if(is.numeric, function(x) round(x,4)))
 
 ### Predicted vs. real CDR-SoB comparison
 
-I want to compare these three ensemble models in terms of how their predictions relate to the actual CDR-SoB values in the training and testing data. I also want to compare these results with those obtained with the individual component models to see if constructing the ensemble confers a predictive advantage. To quantify the association between real CDR-SoB values and model-predicted, I will use the $R^2$ and RMSE values through the `R2` and `RMSE` functions from `caret`:
+I want to compare these three ensemble models in terms of how their predictions relate to the actual CDR-SoB values in the training and testing data. I also want to compare these results with those obtained with the individual component models to see if constructing the ensemble confers a predictive advantage. First, I will visualize how the predicted values stack up to to the actual value for annual change in CDR-Sum of Boxes, in both the training and the test data: 
+
+<div class="fold s">
+```{r, results='hold'}
+# Create training data ggplot to be converted to interactive plotly plot
+p.train <- train.df %>%
+  # Reshape to facet on model
+  pivot_longer(cols=c(-real.CDR), names_to="Model", values_to="Prediction") %>%
+  mutate(Model=factor(Model, levels=c("ensemble.glmnet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
+  ggplot(data=., mapping=aes(x=real.CDR, y= Prediction, color=Model)) +
+  geom_point(alpha=0.3) +
+  facet_grid(.~Model, scales="free") +
+  ggtitle("Model Predictions for CDR Sum of Boxes Annual Change in Training Data") +
+  theme_minimal() +
+  theme(legend.position="none") +
+  ylab("Predicted CDR-SoB Change") +
+  xlab("Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+
+# Create test data ggplot to be converted to interactive plotly plot
+p.test <- test.df  %>%
+  # Reshape to facet on model
+  pivot_longer(cols=c(-real.CDR), names_to="Model", values_to="Prediction") %>%
+  mutate(Model=factor(Model, levels=c("ensemble.glmnet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
+  ggplot(data=., mapping=aes(x=real.CDR, y= Prediction, color=Model)) +
+  geom_point(alpha=0.3) +
+  facet_grid(.~Model, scales="free") +
+  ggtitle("Model Predictions for CDR Sum of Boxes Annual Change in Test Data") +
+  theme_minimal() +
+  theme(legend.position="none") +
+  ylab("Predicted CDR-SoB Change") +
+  xlab("Actual CDR-SoB Change") +
+  theme(plot.title=element_text(hjust=0.5))
+
+# Use ggplotly to create interactive HTML plots
+ggplotly(p.train, height=350, width=900)
+ggplotly(p.test, height=350, width=900) 
+```
+</div> 
+
+
+To quantify the association between real CDR-SoB values and model-predicted, I will use the $R^2$ and RMSE values through the `R2` and `RMSE` functions from `caret`:
 
 <div class="fold s">
 ```{r, results='hold'}
@@ -541,51 +593,10 @@ do.call(plyr::rbind.fill, list(rmse.train, rmse.test, r2.train, r2.test)) %>%
 
 </div>
 
-The random forest model shows the lowest RMSE between predicted vs. real CDR-Sum of Boxes for both the training and test data. It also has the highest $R^2$ value between predicted and real CDR-Sum of Boxes rate of change. However, the training $R^2$ of 0.8860 is substantially larger than the test data $R^2$ of 0.1752, suggesting major overfitting.
-
-I will also use scatterplot visualizations for comparison:
-
-<div class="fold s">
-```{r, results='hold'}
-# Create training data ggplot to be converted to interactive plotly plot
-p.train <- train.df %>%
-  # Reshape to facet on model
-  pivot_longer(cols=c(-real.CDR), names_to="Model", values_to="Prediction") %>%
-  mutate(Model=factor(Model, levels=c("ensemble.glmnet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
-  ggplot(data=., mapping=aes(x=real.CDR, y= Prediction, color=Model)) +
-  geom_point(alpha=0.3) +
-  facet_grid(.~Model, scales="free") +
-  ggtitle("Model Predictions for CDR Sum of Boxes Annual Change in Training Data") +
-  theme_minimal() +
-  theme(legend.position="none") +
-  ylab("Predicted CDR-SoB Change") +
-  xlab("Actual CDR-SoB Change") +
-  theme(plot.title=element_text(hjust=0.5))
-
-# Create test data ggplot to be converted to interactive plotly plot
-p.test <- test.df  %>%
-  # Reshape to facet on model
-  pivot_longer(cols=c(-real.CDR), names_to="Model", values_to="Prediction") %>%
-  mutate(Model=factor(Model, levels=c("ensemble.glmnet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
-  ggplot(data=., mapping=aes(x=real.CDR, y= Prediction, color=Model)) +
-  geom_point(alpha=0.3) +
-  facet_grid(.~Model, scales="free") +
-  ggtitle("Model Predictions for CDR Sum of Boxes Annual Change in Test Data") +
-  theme_minimal() +
-  theme(legend.position="none") +
-  ylab("Predicted CDR-SoB Change") +
-  xlab("Actual CDR-SoB Change") +
-  theme(plot.title=element_text(hjust=0.5))
-
-# Use ggplotly to create interactive HTML plots
-ggplotly(p.train, height=350, width=900)
-ggplotly(p.test, height=350, width=900) 
-```
-</div> 
+The random forest model shows the lowest RMSE between predicted vs. real CDR-Sum of Boxes for both the training and test data. It also has the highest $R^2$ value between predicted and real CDR-Sum of Boxes rate of change. However, the training $R^2$ of 0.8860 is substantially larger than the test data $R^2$ of 0.1752, suggesting major overfitting.  
 
 In the training dataset, the random forest predictions are pretty close, with the glm- and elastic net-stacked ensemble models showing nearly comparable correlations between real vs. predicted values. However, this relationship is not evident in the testing data. 
 Aside from the elastic net individual model, the individual and ensemble models all tend ot over-estimate CDR-Sum of Boxes for test cases with zero actual change. Beyond zero, however, the models tend to *underestimate* CDR-Sum of Boxes change, particular for values of ~1.5 and above.
-
 
 <div class="fold s">
 ```{r}

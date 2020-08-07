@@ -1,0 +1,20 @@
+"0","p.aparc <-  dk %>% filter(hemi==""right"") %>% 
+  unnest(ggseg) %>% 
+  select(region) %>% 
+  na.omit() %>% 
+  distinct() %>%
+  left_join(., ggseg.aparc, by=c(""region""=""ggseg_ROI"")) %>%
+  mutate(Braak = as.character(Braak)) %>%
+  # ggseg: dk=Desikan-Killiany atlas, fill by Braak region, label by ROI name
+  ggseg(atlas=""dk"", mapping=aes(fill=Braak, label=region)) +
+  scale_fill_manual(na.value=""gray80"") +
+  theme(axis.text.y=element_blank(),
+        axis.text.x = element_text(family=""calibri""),
+        axis.title.x = element_text(family=""calibri""),
+        legend.title=element_text(family=""calibri""),
+        legend.text=element_text(family=""calibri""))
+# Convert to plotly interactive visualization
+ggplotly(p.aparc, tooltip = c(""fill"", ""label""), width=800, height=300)
+"
+"2","Error: Insufficient values in manual scale. 5 needed but only 0 provided.
+"
