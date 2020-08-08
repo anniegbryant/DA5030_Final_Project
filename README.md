@@ -11,5 +11,5 @@ Here's the Project Directory:
 * [Model Evaluation](Pages/5_Model_Evaluation.html)
 * Deployment
     * [Deployment Data Prep](Pages/6_Model_Deployment_Prep.html) 
-    * [Shiny App](https://annie-bryant.shinyapps.io/AV1451_TauPET_Uptake_Change_Analysis/)
+    * [Shiny App](https://annie-bryant.shinyapps.io/TauPET_Shiny_App_Notebook/)
 * [Acknowledgments](Pages/Acknowledgments.md)
