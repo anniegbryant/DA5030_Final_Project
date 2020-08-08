@@ -1,0 +1,7 @@
+"0","# Encode sex as a binary variable for Sex_Male"
+"0","annual.changes$Sex_Male <- ifelse(annual.changes$Sex==""Male"", 1, 0)"
+"0","post.pca$Sex_Male <- ifelse(post.pca$Sex==""Male"", 1, 0)"
+"0",""
+"0","# Remove original Sex feature"
+"0","annual.changes <- annual.changes %>% select(-Sex)"
+"0","post.pca <- post.pca %>% select(-Sex)"

@@ -1,0 +1,7 @@
+"0","# tau.stand = tau-PET dataframe with ROI SUVR values re-standardized to inferior cerebellum gray matter SUVR"
+"0","tau.stand <- tau.df"
+"0","# iterate over all ROI columns and standardize to inferior cerebellum gray -- tau.df[4]"
+"0","for (i in 4:ncol(tau.stand)) {"
+"0","  tau.stand[i] <- tau.stand[i]/ tau.df[4]"
+"0","}"
+"0","rm(tau.df)"

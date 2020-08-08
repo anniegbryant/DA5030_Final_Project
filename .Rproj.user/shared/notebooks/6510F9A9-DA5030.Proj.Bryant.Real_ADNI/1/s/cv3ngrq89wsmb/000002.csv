@@ -1,0 +1,5 @@
+"0","autoplot(stacked.ensemble.glm)"
+"2","Predicting without new data is not well supported.  Attempting to predict on the training data."
+"2","Predicting without new data is not well supported.  Attempting to predict on the training data."
+"2","Duplicated aesthetics after name standardisation: size"
+"2","Predicting without new data is not well supported.  Attempting to predict on the training data."

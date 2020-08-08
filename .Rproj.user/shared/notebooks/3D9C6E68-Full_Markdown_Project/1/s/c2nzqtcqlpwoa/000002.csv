@@ -1,0 +1,19 @@
+"0","cat(""\nNumber of longitudinal tau-PET scans with accompanying cognitive data: **\n"","
+"0","    nrow(full.df), ""**\nNumber of subjects in merged dataset: **"", "
+"0","    length(unique(full.df$RID)), ""**\n"", ""\n"", sep="""")"
+"1","
+Number of longitudinal tau-PET scans with accompanying cognitive data: **
+"
+"1",""
+"1","576"
+"1",""
+"1","**
+Number of subjects in merged dataset: **"
+"1",""
+"1","243"
+"1",""
+"1","**
+"
+"1",""
+"1","
+"

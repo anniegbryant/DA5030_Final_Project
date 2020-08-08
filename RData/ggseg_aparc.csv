@@ -1,0 +1,35 @@
+Braak ,ggseg_ROI,tau_ROI
+V,bankssts,bankssts
+IV,caudal anterior cingulate,caudalanteriorcingulate
+VI,cuneus,cuneus
+I,entorhinal,entorhinal
+III,fusiform,fusiform
+V,inferior parietal,inferiorparietal
+IV,inferior temporal,inferiortemporal
+IV,insula,insula
+IV,isthmus cingulate,isthmuscingulate
+V,lateral occipital,lateraloccipital
+V,lateral orbitofrontal,orbitofr
+III,lingual,lingual
+V,caudal middle frontal,middlefr
+V,pars opercularis,parsfr
+V,pars orbitalis,parsfr
+V,frontal pole,middlefr
+V,pars triangularis,parsfr
+IV,middle temporal,middletemporal
+V,medial orbitofrontal,orbitofr
+VI,paracentral,paracentral
+III,parahippocampal,parahippocampal
+VI,pericalcarine,pericalcarine
+VI,postcentral,postcentral
+IV,posterior cingulate,posteriorcingulate
+VI,precentral,precentral
+V,precuneus,precuneus
+IV,rostral anterior cingulate,rostralanteriorcingulate
+V,rostral middle frontal,middlefr
+V,superior frontal,superiorfrontal
+V,superior parietal,superiorparietal
+V,superior temporal,superiortemporal
+V,supramarginal,supramarginal
+IV,temporal pole,temporalpole
+V,transverse temporal,transversetemporal

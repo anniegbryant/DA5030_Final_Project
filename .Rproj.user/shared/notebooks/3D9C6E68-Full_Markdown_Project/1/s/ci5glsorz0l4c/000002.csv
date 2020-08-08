@@ -1,0 +1,6 @@
+"0","model.metrics.OG$ROI_Type <- ""Original"""
+"0","model.metrics.PCA$ROI_Type <- ""PCA"""
+"0",""
+"0","# Concatenate the four dataframes into one dataframe"
+"0","model.metrics.full <- do.call(plyr::rbind.fill, list(model.metrics.OG,"
+"0","                                                     model.metrics.PCA))"

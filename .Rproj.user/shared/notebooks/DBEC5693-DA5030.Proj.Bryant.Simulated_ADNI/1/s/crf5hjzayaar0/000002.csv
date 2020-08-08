@@ -1,0 +1,37 @@
+"0","# Highlight the ROIs noted above with (slightly) negative correlations"
+"0","# Use ggpairs function from GGally to visualize their pairwise distributions"
+"0","p.select.rois <- ggpairs(annual.roi %>% select(entorhinal, pericalcarine, "
+"0","                                               transversetemporal,"
+"0","                                               lateraloccipital),"
+"0","                         # Add regression line to scatter plots"
+"0","                         lower = list(continuous = wrap(""smooth"", se=F, "
+"0","                                                        method = ""lm"", "
+"0","                                                        color=""lightslategray"","
+"0","                                                        alpha=0.4))) +"
+"0","  theme_minimal()"
+"0",""
+"0","# Convert to interactive pair plot with plotly"
+"0","ggplotly(p.select.rois, width=700, height=600)"
+"2","All elements of `...` must be named.
+Did you want `key = c(key)`?"
+"2","All elements of `...` must be named.
+Did you want `key = c(key)`?"
+"2","All elements of `...` must be named.
+Did you want `key = c(key)`?"
+"2","All elements of `...` must be named.
+Did you want `key = c(key)`?"
+"2","All elements of `...` must be named.
+Did you want `key = c(key)`?"
+"2","All elements of `...` must be named.
+Did you want `key = c(key)`?"
+"2","All elements of `...` must be named.
+Did you want `key = c(key)`?"
+"2","Can only have one: highlight"
+"2","All elements of `...` must be named.
+Did you want `key = c(key)`?"
+"2","All elements of `...` must be named.
+Did you want `key = c(key)`?"
+"2","Can only have one: highlight"
+"2","All elements of `...` must be named.
+Did you want `key = c(key)`?"
+"2","Can only have one: highlight"

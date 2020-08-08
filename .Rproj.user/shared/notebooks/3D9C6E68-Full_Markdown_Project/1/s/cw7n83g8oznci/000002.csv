@@ -1,0 +1,4 @@
+"0","# Pivot wide --> long"
+"0","original.roi.long <- original.full %>%"
+"0","  select(-Age_Baseline, -Sex_Male) %>%"
+"0","  pivot_longer(cols=c(-CDRSB), names_to=""ROI"", values_to=""SUVR_Change"")"

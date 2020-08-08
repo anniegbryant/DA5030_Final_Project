@@ -1,0 +1,8 @@
+"0","# full.df = merged tau-PET data and cognitive assessment data"
+"0","full.df <- inner_join(tau.stand.roi, subj.info, by=c(""RID"", ""VISCODE2""=""VISCODE""))  %>%"
+"0","  filter(!is.na(CDRSB)) %>%"
+"0","  group_by(RID) %>%"
+"0","  dplyr::mutate(n_visits = n()) %>%"
+"0","  # Only keep subjects with 2+ PET scans and cognitive assessments"
+"0","  filter(n_visits>1) %>%"
+"0","  select(-n_visits)"
