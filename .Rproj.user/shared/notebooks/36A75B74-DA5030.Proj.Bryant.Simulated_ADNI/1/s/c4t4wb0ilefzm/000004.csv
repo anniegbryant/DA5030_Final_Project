@@ -1,0 +1,6 @@
+"0","source(""encrypt_df.R"")
+tau.df <- encrypt_pet(tau.df)
+write.csv(tau.sim, ""Simulated_ADNI_TauPET.csv"", row.names = F)
+"
+"2","Error in is.data.frame(x) : object 'tau.sim' not found
+"

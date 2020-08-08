@@ -1,0 +1,14 @@
+"0","source(""encrypt_df.R"")
+
+# subset the subject data to be simulated:
+data.to.sim <- select(subj.info, c(RID, VISCODE, EXAMDATE, AGE, PTGENDER, CDRSB))
+
+# encrypt
+subj.encrypted <- encrypt_subj_info(data.to.sim)
+
+# write to csv to be uploaded to GitHub
+write.csv(subj.encrypted, ""Simulated_ADNI_cognitive_scores.csv"", row.names = F)
+"
+"2","Error in file(file, ifelse(append, ""a"", ""w"")) : 
+  cannot open the connection
+"

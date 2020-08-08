@@ -1,0 +1,5 @@
+"0","tau.df <- read.csv(""../ADNI_Data/Raw_Data/UCBERKELEYAV1451_PVC_05_12_20.csv"")"
+"0","tau.df$EXAMDATE = as.Date(tau.df$EXAMDATE, format=""%m/%d/%Y"")"
+"0",""
+"0","# update stamp is irrelevant, drop it"
+"0","tau.df <- select(tau.df, -update_stamp)"

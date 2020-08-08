@@ -1,4 +1,4 @@
-"RID","VISCODE","EXAMDATE","AGE","CDRSB","Sex"
+"RID","VISCODE","EXAMDATE","AGE","CDRSB","PTGENDER"
 2,"bl","9/8/2005",74.3,0,"Female"
 3,"bl","9/12/2005",81.3,4.5,"Female"
 3,"m06","3/13/2006",81.3,6,"Female"
