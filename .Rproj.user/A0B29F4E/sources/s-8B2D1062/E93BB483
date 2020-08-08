@@ -3,7 +3,7 @@
     "path": "D:/DA5030/DA5030.Proj.Bryant.Simulated_ADNI.Rmd",
     "project_path": null,
     "type": "r_markdown",
-    "hash": "1629099902",
+    "hash": "1650784817",
     "contents": "",
     "dirty": false,
     "created": 1596901674869.0,
@@ -11,16 +11,16 @@
     "relative_order": 2,
     "properties": {
         "tempName": "Untitled1",
-        "cursorPosition": "933,48",
-        "scrollLine": "910",
+        "cursorPosition": "21,50",
+        "scrollLine": "10",
         "last_setup_crc32": "8B2D106247b2ec32"
     },
     "folds": "",
-    "lastKnownWriteTime": 1596902033,
+    "lastKnownWriteTime": 1596904482,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1596902143666,
+    "last_content_update": 1596904482404,
     "read_only": false,
     "read_only_alternatives": []
 }

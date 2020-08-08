@@ -19,6 +19,8 @@ knitr::opts_chunk$set(echo = TRUE, warning=F, message=F)
 
 This script and corresponding output use **simulated** data based on the original dataset I downloaded from the Alzheimer's Disease Neuroimaging Initiative. Part of the data agreement terms for ADNI users is that data not be published externally, so I cannot directly share the data upon which I ran my own analysis. However, the simulated data structure (columns, number of rows, subject IDs, etc.) is identical to that downloaded from ADNI; the only differences are simulated tau-PET uptake values, age, sex, and cognitive assessment scores. Any reader who wishes to access the actual dataset used for my analysis should register for an ADNI account (free) and refer to the specific data files described in Data Understanding.
 
+Because this file utilizes the simulated data, all correlations, model performance, and model predictions differ from those obtained with the real data in my main file and on my GitHub pages website (see below). I left my notes and commentary as-is in this file, though please note they do not reflect any plots and calculations obtained from the fake/simulated data. 
+
 Additionally, this project has been published as a GitHub pages website containing figures and analysis created with the actual ADNI dataset, and can be found here: https://anniegbryant.github.io/DA5030_Final_Project/ 
 
 Lastly, the Shiny app deployed based on this project can be found here: https://annie-bryant.shinyapps.io/TauPET_Shiny_App_Notebook/
@@ -454,7 +456,7 @@ The cognitive score dataset columns I will be using for this project include:
 * `CDRSB`: CDR Sum-of-Boxes score at visit
 
 ```{r}
-subj.info$EXAMDATE <- as.Date(subj.info$EXAMDATE, format="%m/%d/%Y")
+subj.info$EXAMDATE <- as.Date(subj.info$EXAMDATE, format="%Y-%m-%d")
 summary(subj.info %>% select(RID, VISCODE, EXAMDATE, AGE, PTGENDER, CDRSB))
 ```
 
@@ -2735,3 +2737,6 @@ Save this data to an .RData file to be loaded into the Shiny app:
 ```{r, eval=F}
 save(original.roi.corr.coef, og.importance, original.roi.corr.results, ggseg.aparc, ggseg.aseg, rois, vertices, mygraph, file="RData/shiny_data.RData")
 ```
+
+
+The deployed Shiny app can be found here: https://annie-bryant.shinyapps.io/TauPET_Shiny_App_Notebook/
