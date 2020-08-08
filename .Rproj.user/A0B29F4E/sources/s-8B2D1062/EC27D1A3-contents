@@ -152,6 +152,7 @@ tau.df <- read.csv("https://github.com/anniegbryant/DA5030_Final_Project/raw/mas
 
 I will also apply partial encryption to the real ADNI tau-PET dataset, just to change the subject ID (RID) and exam date (EXAMDATE) so the data presented here can't be directly traced to ADNI subjects.
 ```{r}
+source("encrypt_df.R")
 tau.df <- encrypt_pet_real(tau.df)
 ```
 
