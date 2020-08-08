@@ -1,1 +1,0 @@
-"0","subj.info <- subj.info %>% select(RID, VISCODE, AGE, PTGENDER, CDRSB)"

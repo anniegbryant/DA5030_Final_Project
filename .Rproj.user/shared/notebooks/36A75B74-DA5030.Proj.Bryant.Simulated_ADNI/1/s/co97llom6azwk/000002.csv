@@ -1,2 +1,0 @@
-"0","tau.df <- read.csv(""Simulated_ADNI_TauPET.csv"")"
-"0","tau.df$EXAMDATE = as.Date(tau.df$EXAMDATE, format=""%m/%d/%Y"")"
