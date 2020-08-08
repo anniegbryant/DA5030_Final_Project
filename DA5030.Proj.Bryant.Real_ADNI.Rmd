@@ -412,6 +412,7 @@ ADNI compiled a merged dataset containing key information from several tables, i
 ```{r}
 # Read in subject demographic dataset from ADNI
 subj.info <- read.csv("../ADNI_Data/Raw_Data/ADNIMERGE.csv", stringsAsFactors = T, na.strings="")
+subj.info$EXAMDATE <- as.Date(subj.info$EXAMDATE, "%m/%d/%Y")
 ```
 
 Note: as with the tau-PET data, I've "simulated" this dataset using a custom encryption function (sourced locally from encrypt_df.R, not on GitHub) that modifies the columns as follows: 
@@ -423,6 +424,7 @@ Note: as with the tau-PET data, I've "simulated" this dataset using a custom enc
 * Sex: each subject is randomly assigned Male or Female based on uniform distribution
 
 ```{r, eval=F}
+library(tidyverse)
 source("encrypt_df.R")
 
 # subset the subject data to be simulated:

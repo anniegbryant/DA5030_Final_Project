@@ -1,0 +1,8 @@
+"0","# subset the subject data to be simulated:
+data.to.sim <- select(subj.info, c(RID, VISCODE, EXAMDATE, AGE, PTGENDER, CDRSB))
+
+# encrypt
+subj.encrypted <- encrypt_subj_info(data.to.sim)
+"
+"2","Joining, by = ""RID""
+"

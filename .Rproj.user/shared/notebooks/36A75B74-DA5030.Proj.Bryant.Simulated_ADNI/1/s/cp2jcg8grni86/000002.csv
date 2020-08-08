@@ -1,0 +1,10 @@
+"0","download.file(""https://github.com/anniegbryant/DA5030_Final_Project/raw/master/2_Data_Understanding/pet_pipeline.jpg"",'pet_pipeline.jpg', mode = 'wb')"
+"2","trying URL 'https://github.com/anniegbryant/DA5030_Final_Project/raw/master/2_Data_Understanding/pet_pipeline.jpg'
+"
+"2","Content type 'image/jpeg'"
+"2"," length 246339 bytes (240 KB)
+"
+"2","downloaded 240 KB
+
+"
+"0","include_graphics(""pet_pipeline.jpg"")"

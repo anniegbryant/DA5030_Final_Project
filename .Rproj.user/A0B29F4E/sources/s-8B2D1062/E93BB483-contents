@@ -782,7 +782,7 @@ The following plots show the spatial relationship of the Braak stages in the bra
 
 ```{r, results='hold'}
 # Load dataframes that link the ADNI tau-PET ROIs with nomenclature used in the ggseg package
-ggseg.aparc <- read.csv("https://github.com/anniegbryant/DA5030_Final_Project/blob/master/RData/ggseg_aparc.csv") %>%
+ggseg.aparc <- read.csv("https://raw.githubusercontent.com/anniegbryant/DA5030_Final_Project/master/RData/ggseg_aparc.csv") %>%
   mutate(Braak=as.numeric(as.roman(Braak)))
 ggseg.aseg <- read.csv("https://raw.githubusercontent.com/anniegbryant/DA5030_Final_Project/master/RData/ggseg_aseg.csv") %>%
   mutate(Braak=as.numeric(as.roman(Braak)))

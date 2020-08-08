@@ -1,0 +1,32 @@
+{
+    "id": "5BA4E201",
+    "path": null,
+    "project_path": null,
+    "type": "r_dataframe",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1596902156262.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "expression": "tau.stand",
+        "caption": "tau.stand",
+        "totalObservations": 1120,
+        "displayedObservations": 1120,
+        "variables": 78,
+        "cacheKey": "08CFB011",
+        "object": "tau.stand",
+        "environment": "",
+        "contentUrl": "grid_resource/gridviewer.html?env=&obj=tau.stand&cache_key=08CFB011&max_cols=50",
+        "preview": 0
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1797608602472,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1596902156262,
+    "read_only": false,
+    "read_only_alternatives": []
+}
