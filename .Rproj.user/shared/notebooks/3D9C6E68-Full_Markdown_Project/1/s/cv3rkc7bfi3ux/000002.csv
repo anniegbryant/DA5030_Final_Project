@@ -1,6 +1,0 @@
-"0","# Rename relevant objects to have original data-specific names"
-"0","models.for.ensemble.OG <- ensemble.models"
-"0","model.metrics.OG <- overall.ensemble.results"
-"0","stacked.ensemble.glm.OG <- stacked.ensemble.glm"
-"0","stacked.ensemble.glmnet.OG <- stacked.ensemble.glmnet"
-"0","stacked.ensemble.rf.OG <- stacked.ensemble.rf"

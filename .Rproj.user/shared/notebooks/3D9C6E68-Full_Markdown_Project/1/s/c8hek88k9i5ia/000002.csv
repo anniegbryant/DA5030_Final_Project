@@ -1,8 +1,0 @@
-"0","# Convert tau-PET regional SUVR change to a matrix"
-"0","original.roi.mat <- original.full %>%"
-"0","  select(-Age_Baseline, -Sex_Male, -CDRSB) %>%"
-"0","  as.matrix()"
-"0",""
-"0","# Use rcorr from Hmisc to calculate Pearson correlation coefficients ($r)"
-"0","original.roi.corr <- rcorr(original.roi.mat)"
-"0","original.roi.corr.coef <- original.roi.corr$r"

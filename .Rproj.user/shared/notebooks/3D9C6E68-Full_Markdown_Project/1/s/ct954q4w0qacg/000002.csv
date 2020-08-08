@@ -1,6 +1,0 @@
-"0","# Rename relevant objects to have PCA-transformed data-specific names"
-"0","models.for.ensemble.PCA <- ensemble.models"
-"0","model.metrics.PCA <- overall.ensemble.results"
-"0","stacked.ensemble.glm.PCA <- stacked.ensemble.glm"
-"0","stacked.ensemble.glmnet.PCA <- stacked.ensemble.glmnet"
-"0","stacked.ensemble.rf.PCA <- stacked.ensemble.rf"

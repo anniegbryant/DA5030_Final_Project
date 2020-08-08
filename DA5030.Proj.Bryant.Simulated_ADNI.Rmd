@@ -1,5 +1,5 @@
 ---
-title: "DA5030 Final Project"
+title: "DA5030 Final Project -- Simulated ADNI Data"
 author: "Annie Bryant"
 output: 
   html_document:
@@ -418,7 +418,9 @@ data.to.sim <- select(subj.info, c(RID, VISCODE, EXAMDATE, AGE, PTGENDER, CDRSB)
 
 # use simulate_dataset from fakeR
 # stealth.level=2 means each column is simulated independently
-subj.sim <- simulate_dataset(data.to.sim, digits=6, stealth.level=2, ignore=c("RID", "VISCODE", "EXAMDATE"))
+# Calculate absolute value since CDRSB > 0
+subj.sim <- simulate_dataset(data.to.sim, digits=1, stealth.level=2, ignore=c("RID", "VISCODE", "EXAMDATE")) %>%
+  mutate(CDRSB = abs(CDRSB))
 write.csv(subj.sim, "Simulated_ADNI_cognitive_scores.csv", row.names = F)
 ```
 
@@ -769,9 +771,9 @@ The following plots show the spatial relationship of the Braak stages in the bra
 
 ```{r, results='hold'}
 # Load dataframes that link the ADNI tau-PET ROIs with nomenclature used in the ggseg package
-ggseg.aparc <- read_excel("RData/ggseg_roi.xlsx", sheet=1) %>%
+ggseg.aparc <- read.csv("https://github.com/anniegbryant/DA5030_Final_Project/blob/master/RData/ggseg_aparc.csv") %>%
   mutate(Braak=as.numeric(as.roman(Braak)))
-ggseg.aseg <- read_excel("RData/ggseg_roi.xlsx", sheet=2) %>%
+ggseg.aseg <- read.csv("https://raw.githubusercontent.com/anniegbryant/DA5030_Final_Project/master/RData/ggseg_aseg.csv") %>%
   mutate(Braak=as.numeric(as.roman(Braak)))
 
 # Plot the Desikan-Killiany cortical parcellation atlas
@@ -1727,7 +1729,9 @@ rmse.train <- data.frame(ensemble.glmnet=RMSE(ensemble.glmnet.train, real.train)
                          neural.net=RMSE(nnet.train, real.train),
                          random.forest=RMSE(rf.train, real.train),
                          Metric="Train_RMSE")
+```
 
+```{r}
 # Calculate the RMSE between real vs. predicted CDR-SoB values for unseen test data
 # Combine into dataframe for easier viewing
 rmse.test <- data.frame(ensemble.glmnet=RMSE(ensemble.glmnet.test, real.test),
@@ -1738,7 +1742,10 @@ rmse.test <- data.frame(ensemble.glmnet=RMSE(ensemble.glmnet.test, real.test),
                         neural.net=RMSE(nnet.test, real.test),
                         random.forest=RMSE(rf.test, real.test),
                         Metric="Test_RMSE")
+```
 
+
+```{r}
 # Calculate the R-squared between real vs. predicted CDR-SoB values for training data
 # Combine into dataframe for easier viewing
 r2.train <- data.frame(ensemble.glmnet=R2(ensemble.glmnet.train, real.train),
@@ -1749,7 +1756,10 @@ r2.train <- data.frame(ensemble.glmnet=R2(ensemble.glmnet.train, real.train),
                        neural.net=R2(nnet.train, real.train),
                        random.forest=R2(rf.train, real.train),
                        Metric="Train_R2")
+```
 
+
+```{r}
 # Calculate the R-squared between real vs. predicted CDR-SoB values for unseen test data
 # Combine into dataframe for easier viewing
 r2.test <- data.frame(ensemble.glmnet=R2(ensemble.glmnet.test, real.test),
@@ -1760,7 +1770,10 @@ r2.test <- data.frame(ensemble.glmnet=R2(ensemble.glmnet.test, real.test),
                       neural.net=R2(nnet.test, real.test),
                       random.forest=R2(rf.test, real.test),
                       Metric="Test_R2")
+```
 
+
+```{r}
 # Combine all four prediction dataframes into one table to compare and contrast
 # RMSE and R-squared across models
 do.call(plyr::rbind.fill, list(rmse.train, rmse.test, r2.train, r2.test)) %>%
@@ -1874,7 +1887,10 @@ my.randomforest <- caretModelSpec(method="ranger", tuneLength=15, num.trees=500,
 
 # elastic net: try four different values of alpha for ridge/lasso blending and four lambda values for coefficient penalty
 my.elasticnet <- caretModelSpec(method="glmnet",tuneGrid=expand.grid(alpha=c(0,0.1,0.6,1), lambda=c(5^-5,5^-3,5^-1,1)))
+```
 
+
+```{r}
 # Compile individual models into one cohesive model list using caretList
 invisible(capture.output(ensemble.models <- caretList(CDRSB ~ ., 
                                                       data=pca.train, 
@@ -2087,8 +2103,6 @@ An `mtry` of 3 with an `extratrees` split rule yielded the lowest RMSE, meaning 
 
 These four models can be resampled and aggregated using the `resamples` function:
 
-
-
 ```{r}
 # Resample the performance of this ensemble and report summary metrics for MAE, RMSE, and R2
 set.seed(127)
@@ -2284,7 +2298,10 @@ rmse.train <- data.frame(ensemble.glmnet=RMSE(ensemble.glmnet.train, real.train)
                          neural.net=RMSE(nnet.train, real.train),
                          random.forest=RMSE(rf.train, real.train),
                          Metric="Train_RMSE")
+```
 
+
+```{r, results='hold'}
 # Calculate the RMSE between real vs. predicted CDR-SoB values for unseen test data
 # Combine into dataframe for easier viewing
 rmse.test <- data.frame(ensemble.glmnet=RMSE(ensemble.glmnet.test, real.test),
@@ -2295,7 +2312,10 @@ rmse.test <- data.frame(ensemble.glmnet=RMSE(ensemble.glmnet.test, real.test),
                         neural.net=RMSE(nnet.test, real.test),
                         random.forest=RMSE(rf.test, real.test),
                         Metric="Test_RMSE")
+```
 
+
+```{r, results='hold'}
 # Calculate the R-squared between real vs. predicted CDR-SoB values for training data
 # Combine into dataframe for easier viewing
 r2.train <- data.frame(ensemble.glmnet=R2(ensemble.glmnet.train, real.train),
@@ -2306,7 +2326,10 @@ r2.train <- data.frame(ensemble.glmnet=R2(ensemble.glmnet.train, real.train),
                        neural.net=R2(nnet.train, real.train),
                        random.forest=R2(rf.train, real.train),
                        Metric="Train_R2")
+```
 
+
+```{r, results='hold'}
 # Calculate the R-squared between real vs. predicted CDR-SoB values for unseen test data
 # Combine into dataframe for easier viewing
 r2.test <- data.frame(ensemble.glmnet=R2(ensemble.glmnet.test, real.test),
@@ -2562,14 +2585,6 @@ I like to use the `ggseg` package to visualize these elastic net regression coef
 
 
 ```{r}
-# Read in the aparc (cortical parcellation) ROIs
-ggseg.aparc <- read_excel("RData/ggseg_roi.xlsx", sheet=1) %>%
-  mutate(Braak=as.numeric(as.roman(Braak)))
-
-# Read in the aseg (subcortical segmentation) ROIs
-ggseg.aseg <- read_excel("RData/ggseg_roi.xlsx", sheet=2) %>%
-  mutate(Braak=as.numeric(as.roman(Braak)))
-
 # Pre-defined color palette
 my.pal <- colorRampPalette(c("#fcb9b2", "#f67e7d", "#843b62", "#621940"))(200)
 

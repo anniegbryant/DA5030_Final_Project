@@ -1,2 +1,0 @@
-"0","# Omit row 224"
-"0","annual.changes <- annual.changes[-224,]"
