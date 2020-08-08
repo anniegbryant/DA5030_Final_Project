@@ -1,15 +1,18 @@
 encrypt_pet <- function(df) {
   set.seed(127)
-  mutate_at(df, "EXAMDATE", function(x) x + sample(-15:15, 1))
-  mutate_if(df, is.numeric, function(x) x + runif(1, -0.5, 0.5))
-  mutate_if(df, is.integer, function(x) x + sample(-300:300, 1))
-  mutate_at(df, "RID", function(x) as.numeric(x) + 23857)
+  df <- df %>%
+    group_by(RID) %>%
+    mutate(RID = round(RID * 321)) %>%
+    ungroup() %>%
+    mutate(EXAMDATE = EXAMDATE + sample(-15:15, 1)) %>%
+    mutate_if(is.numeric, function(x) x + runif(1, -0.5, 0.5)) %>%
+    mutate_if(is.integer, function(x) x + sample(-300:300, 1))
 }
 
 encrypt_subj_info <- function(df) {
   set.seed(127)
   age.increment <- round(runif(1, -1, 1), 1)
-  df <- df %>% mutate(RID = RID + 23857,
+  df <- df %>% mutate(RID = round(RID * 321),
                       EXAMDATE = EXAMDATE + sample(-15:15, 1),
                       AGE = AGE + age.increment,
                       CDRSB = ifelse(CDRSB==0, 0, CDRSB + sample(c(-0.5, 0, 0.5, 1)))) %>%

@@ -138,6 +138,7 @@ This way, the data form remains approximately similar to that which I downloaded
 ```{r, eval=F}
 source("encrypt_df.R")
 tau.df <- encrypt_pet(tau.df)
+tau.df$RID <- round(tau.df$RID)
 write.csv(tau.df, "Simulated_ADNI_TauPET.csv", row.names = F)
 ```
 
