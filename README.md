@@ -11,6 +11,6 @@ Here's the Project Directory:
 * [Model Evaluation](Pages/5_Model_Evaluation.html)
 * Deployment
     * [Deployment Data Prep](Pages/6_Model_Deployment_Prep.html) 
-    * [Shiny App](https://annie-bryant.shinyapps.io/TauPET_Shiny_App_Notebook/) 
+    * Shiny: [App, ](https://annie-bryant.shinyapps.io/TauPET_Shiny_App_Notebook/)[Code](https://github.com/anniegbryant/DA5030_Final_Project/blob/master/6_Deployment/App_Folder/TauPET_Shiny_App_Notebook.Rmd)
     * [Project Video](https://www.dropbox.com/s/5nir39tpntss4t6/DA5030.Project.Bryant.mp4?dl=0)
 * [Acknowledgments](Pages/Acknowledgments.md)
