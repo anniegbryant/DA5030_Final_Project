@@ -1,0 +1,3 @@
+"0","# Read in subject demographic dataset from ADNI"
+"0","subj.info <- read.csv(""../../ADNI_Data/Raw_Data/ADNIMERGE.csv"", stringsAsFactors = T, na.strings="""")"
+"0","subj.info$EXAMDATE <- as.Date(subj.info$EXAMDATE, ""%m/%d/%Y"")"

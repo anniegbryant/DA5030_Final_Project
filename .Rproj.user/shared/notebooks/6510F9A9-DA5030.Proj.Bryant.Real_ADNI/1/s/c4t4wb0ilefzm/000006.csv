@@ -1,8 +1,0 @@
-"0","source(""encrypt_df.R"")
-tau.df <- encrypt_pet(tau.df)
-write.csv(tau.df, ""Simulated_ADNI_TauPET.csv"", row.names = F)
-"
-"2","cannot open file 'Simulated_ADNI_TauPET.csv': Permission denied"
-"2","Error in file(file, ifelse(append, ""a"", ""w"")) : 
-  cannot open the connection
-"

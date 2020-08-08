@@ -1,0 +1,344 @@
+---
+title: "Model Evaluation"
+output: 
+  html_document:
+    css: "../html/my_style.css"
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+toc_depth: 3
+number_sections: true
+theme: lumen
+---
+
+```{css toc-content, echo = FALSE}
+#TOC {
+  left: 10px;
+  margin: 30px 0px 0px 10px;
+}
+
+.main-container {
+    margin-left: -40px;
+}
+```
+
+<script src="../html/hideOutput.js"></script>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=F, message=F)
+```
+
+<a class="et_pb_button" title="Project Home" href="https://anniegbryant.github.io/DA5030_Final_Project/">Project Home</a>  
+
+All packages used for analysis and figures in this page:
+
+<div class="fold s">
+```{r}
+# General data wrangling
+library(tidyverse)
+library(DT)
+library(readxl)
+
+# Visualization
+library(plotly)
+library(colorRamps)
+library(RColorBrewer)
+library(colorspace)
+library(ggseg)
+library(forcats)
+
+# Modeling
+library(glmnet)
+library(caret)
+library(ranger)
+
+# Ensemble building
+library(caretEnsemble)
+```
+</div>
+
+## Data preparation
+
+### Load data
+
+Load the models constructed in Modeling:
+```{r}
+# NOTE: RData files are not on GitHub as they contain real ADNI information.
+# They may be recreated by following along with the code included in this GitHub Pages website.
+load("../RData/Model_Results.RData")
+```
+
+I'll evaluate model performance across the two ROI aggregation types:
+
+* Original data
+* PCA-transformed data
+
+Here, I will define "model performance" as the RMSE and R$^2$ for agreement between predicted vs. actual CDR-Sum of Boxes change per year in the test dataset. There are seven models utilized, including four individual models and three stacked ensembles.
+
+<div class="fold s">
+```{r}
+model.metrics.OG$ROI_Type <- "Original"
+model.metrics.PCA$ROI_Type <- "PCA"
+
+# Concatenate the four dataframes into one dataframe
+model.metrics.full <- do.call(plyr::rbind.fill, list(model.metrics.OG,
+                                                     model.metrics.PCA))
+```
+</div>
+
+## Model comparison
+
+### Predicted vs. real CDR-SoB comparison
+
+I'll use bar plots to visualize the RMSE and R$^2$ metrics for each of the seven models:
+
+<div class="fold s">
+
+```{r}
+# Define two distinct color palettes using hex colors
+rmse.pal <- c("#C0D3D9", "#7DBCDD", "#2D69A5", "#2A486C")
+r2.pal <- c("#fcb9b2", "#f67e7d", "#843b62", "#621940")
+
+# Create static ggplot
+p.rmse <- model.metrics.full %>%
+  # Plot the RMSE for test data predictions
+  filter(Data=="Test", Metric=="RMSE") %>%
+  # Show models in specific order on x-axis
+  mutate(Model=factor(Model, levels=c("ensemble.glmnet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
+  ggplot(data=., mapping=aes(x=Model, y=Value, fill=ROI_Type)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  labs(fill="ROI Type") +
+  theme_minimal() +
+  ggtitle("RMSE Between Predicted vs. Actual CDR-SoB") +
+  # Use pre-defined color palette
+  scale_fill_manual(values=rmse.pal) +
+  ylab("RMSE") +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        plot.title=element_text(hjust=0.5),
+        strip.text = element_text(size=12, face="bold"),
+        legend.position = "bottom")
+
+# Convert to plotly interactive visualizatoin
+ggplotly(p.rmse, width=700, height=300)
+
+p.r2 <- model.metrics.full %>%
+  # Plot the R2 for test data predictions
+  filter(Data=="Test", Metric=="R2") %>%
+  # Show models in specific order on x-axis
+  mutate(Model=factor(Model, levels=c("ensemble.glmnet", "ensemble.glm", "ensemble.rf", "elastic.net", "knn", "neural.net", "random.forest"))) %>%
+  ggplot(data=., mapping=aes(x=Model, y=Value, fill=ROI_Type)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  labs(fill="ROI Type") +
+  theme_minimal() +
+  ggtitle("R2 Between Predicted vs. Actual CDR-SoB") +
+  # Use pre-defined color palette
+  scale_fill_manual(values=r2.pal) +
+  ylab("R2") +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        plot.title=element_text(hjust=0.5),
+        strip.text = element_text(size=12, face="bold"),
+        legend.position = "bottom")
+ggplotly(p.r2, width=700, height=300)
+```
+</div>
+
+The RMSE doesn't afford much distinction either by ROI averageing type or by predictive model. If anything, the RMSE does stand out as a bit larger for the original ROI configuration in the random forest-stacked ensemble (`ensemble.rf`) and the neural network (`neural.net`). However, the R$^2$ agreement between predicted vs. actual CDR-SoB does differentiate among the models. The random forest model (`random.forest`) actually shows the highest R$^2$ value for each the two ROI configurations, surpassing all three of the stacked ensemble models. The PCA-transformed data shows the largest R$^2$ agreement of the four ROI configurations, followed closely by the original data configuration; however, even these values are <0.2, suggesting minimal association between the predictions and the actual values.
+
+## Interpretation
+
+At the end of the day, none of the models and corresponding ROI configurations offered strong predictions for CDR-Sum of Boxes annual change based on regional changes in tau-PET tracer uptake. To improve this model in the future, I would consider including the baseline tau-PET SUVR value in a mixed-effects model; conceivably, an increase in 0.5 SUVR could have different implications for a subject with no tau-PET uptake at baseline versus a subject with high tau-PET uptake at baseline. Also, it's entirely possible that there is a temporal lag between tau-PET uptake and cognitive decline; for example, tau accumulation in a given ROI (e.g. hippocampus) may precede cognitive decline by months or years, which would not be detected in this model. This is a complex pathophysiological dynamic that necessitates complex modeling supported by extensive domain knowledge.
+
+
+That being said, I am interested in a yet-unexamined facet of this project: how does a given region of interest influence a given model? How important is e.g. the hippocampus relative to e.g. the insula?  
+
+### Variable contributions
+
+To answer these questions, I will use the `varImp` function from `caret`, which computes the relative importance of each variable used as model input. Since variable importance is not readily identifiable for `caretStack` ensembles, I'll focus exclusively on individual models. Variable importance doesn't really apply for k-Nearest Neighbors (kNN), so I will examine the random forest, elastic net, and neural network regression models. For elastic net regression, I will also extract ROI coefficients.
+
+First, I'll examine the original ROI conformation:
+
+<div class="fold s">
+```{r}
+# Extract variable importance from random forest regression model
+rf.var.imp <- varImp(models.for.ensemble.OG$ranger)[[1]] %>%
+  rownames_to_column(var="Term") %>%
+  dplyr::rename("Importance"="Overall") %>%
+  mutate(Model="Random Forest")
+
+# Extract variable importance from elastic net regression model
+glmnet.var.imp <- varImp(models.for.ensemble.OG$glmnet)[[1]] %>%
+  rownames_to_column(var="Term") %>%
+  dplyr::rename("Importance"="Overall") %>%
+  mutate(Model="Elastic Net")
+
+# Extract variable coefficients from optimal elastic net regression model
+glmnet.var.coef <- as.data.frame(as.matrix(coef(models.for.ensemble.OG$glmnet$finalModel, models.for.ensemble.OG$glmnet$bestTune$lambda))) %>%
+  rownames_to_column(var="Term") %>% dplyr::rename("Coefficient"="1") %>%
+  mutate(Model="Elastic Net")
+
+# Combine importance + coefficients for elastic net regression dataframe
+glmnet.var <- left_join(glmnet.var.imp, glmnet.var.coef)
+
+# Extract variable importance from neural network regression model
+nnet.var.imp <- varImp(models.for.ensemble.OG$nnet)[[1]] %>%
+  rownames_to_column(var="Term") %>%
+  dplyr::rename("Importance"="Overall") %>%
+  mutate(Model="Neural Network")
+
+# Concatenate these four dataframes into one dataframe
+og.importance <- do.call(plyr::rbind.fill, list(rf.var.imp, glmnet.var, nnet.var.imp))
+datatable(og.importance)
+```
+</div>
+
+
+<div class="fold s">
+```{r}
+# Pre-define color palette
+my.pal <- colorRampPalette(c("#C0D3D9", "#7DBCDD", "#2D69A5", "#2A486C"))(200)
+
+# Plot the variable importance for each model
+p.importance <- og.importance %>%
+  ggplot(data=., mapping=aes(x=Term, y=Importance, fill=Importance)) +
+  geom_bar(stat="identity") +
+  # Facet by model, one model per row
+  facet_wrap(Model ~ ., scales="free_y", nrow=3) +
+  theme_minimal() +
+  scale_fill_gradientn(colors=my.pal) +
+  # Rotate x-axis text for legibility
+  theme(axis.text.x = element_text(angle=90, hjust=1),
+        axis.title=element_blank(),
+        strip.text = element_text(size=14))
+
+# Convert to interactive plotly visualization
+ggplotly(p.importance, width=800, height=700) %>%
+  layout(xaxis = list(title = "Model Term", 
+                      titlefont = list(size = 14)), 
+         yaxis=list(title="Importance", 
+                    titlefont = list(size = 12)),
+         yaxis2 = list(title="Importance", 
+                       titlefont = list(size = 12)),
+         yaxis3 = list(title="Importance", 
+                       titlefont = list(size = 12)))
+```
+</div>
+
+It's really interesting how differently these three models weigh each model term. The elastic net model placed some of the largest importance in the bankssts, entorhinal, hippocampus, and inferiortemporal ROIs, which typically show some of the heaviest tau pathology burdens in the human Alzheimer's Disease brain. The neural network found sex to be the most important predictive variable by far, which is surprising and may contribute to the relatively low predictive accuracy associated with the neural network. The random forest identified the inferiorparietal, isthmuscingulate, insula, and parahippocampal ROIs as the most important predictor terms.
+
+### Variable coefficients
+
+I'm curious as to how variable importance relates to the regularized coefficient calculated for each predictor term in the elastic net model: 
+
+```{r}
+# Pre-define color palette
+my.pal <- colorRampPalette(c("#fcb9b2", "#f67e7d", "#843b62", "#621940"))(200)
+
+# Plot variable coefficients and fill with variable importance
+p.enet <- og.importance %>%
+  filter(Model=="Elastic Net") %>%
+  # Rearrange term by coefficient using forcats::fct_reorder
+  ggplot(data=., mapping=aes(x=fct_reorder(Term, Coefficient,), y=Coefficient, 
+                             fill=Importance, label=Term)) +
+  geom_bar(stat="identity") +
+  xlab("Term") +
+  theme_minimal() +
+  scale_fill_gradientn(colors=my.pal) +
+  ggtitle("Variable Coefficients & Importance in Elastic Net Regression") +
+  theme(axis.text.x=element_text(angle=90),
+        plot.title=element_text(hjust=0.5))
+
+# tooltip specifies only to show the label (term), y (coefficient), and fill (importance) upon cursor hover
+ggplotly(p.enet, tooltip=c("label", "y", "fill"), width=700, height=400)
+```
+
+The most important features bookend the x-axis, and also have the largest magnitude of coefficients. It's pretty surprising to note that the entorhinal cortex and hippocampus have two of the most negative coefficients of all the variables; a negative coefficient means that rate of tau accumulation in that ROI is negatively associated with CDR-Sum of Boxes score increase. The entorhinal cortex and hippocampus are two of the first gray matter regions to develop tau pathology in Alzheimer's Disease according to the Braak staging paradigm, so I would expect that increased tau accumulation in these regions would be associated with *increased* CDR-Sum of Boxes scores, not a decrease (note: a higher CDR-Sum of Boxes score means greater cognitive impairment). One possible interpretation could be related to the temporal gap between tau neurofibrillary tangle accumulation and cognitive decline as described above; though further assessment would be warranted to interpret the implications of these negative coefficients.  
+
+### Regional importance and coefficients
+
+I like to use the `ggseg` package to visualize these elastic net regression coefficients and variable importance metrics within the brain space:
+
+<div class="fold s">
+```{r}
+# Read in the aparc (cortical parcellation) ROIs
+ggseg.aparc <- read_excel("../ggseg_roi.xlsx", sheet=1) %>%
+  mutate(Braak=as.numeric(as.roman(Braak)))
+
+# Read in the aseg (subcortical segmentation) ROIs
+ggseg.aseg <- read_excel("../ggseg_roi.xlsx", sheet=2) %>%
+  mutate(Braak=as.numeric(as.roman(Braak)))
+
+# Pre-defined color palette
+my.pal <- colorRampPalette(c("#fcb9b2", "#f67e7d", "#843b62", "#621940"))(200)
+
+# Plot ROI importance in brain using ggseg
+p.roi.imp <- og.importance %>%
+  filter(Model=="Elastic Net") %>%
+  # Remove the non-brain ROI terms
+  filter(!(Term %in% c("Sex_Male", "Age_Baseline"))) %>%
+  left_join(., ggseg.aparc, by=c("Term"="tau_ROI")) %>%
+  rename("region"="ggseg_ROI") %>%
+  filter(!is.na(region)) %>%
+  # Convert to brain representation using Desikan-Killiany (dk) atlas
+  ggseg(atlas="dk", mapping=aes(fill=Importance, label=region)) +
+  ggtitle("Elastic Net ROI Importance") +
+  # Label left and right hemispheres
+  annotate(geom="text", x=410, y=-100, label="Left") +
+  annotate(geom="text", x=1290, y=-100, label="Right") +
+  scale_fill_gradientn(colors=my.pal) +
+  # Use calibri font
+  theme(axis.text=element_blank(),
+        axis.title.x = element_text(family="calibri"),
+        legend.title=element_text(family="calibri"),
+        legend.text=element_text(family="calibri"),
+        plot.title=element_text(hjust=0.5, family="calibri"),
+        text=element_text(family="calibri"))
+
+# Convert to interactive plotly visualization
+ggplotly(p.roi.imp, dynamicTicks = T, tooltip=c("label", "fill"), width=700, height=300)
+```
+</div>
+
+One interesting observation is that the ROIs with the largest relative importance are located at the lateral edges of the cortex rather than the medial edge, with the exception of the entorhinal and pericalcarine cortices.  
+
+The elastic net coefficient weights can also be viewed in the brain:  
+
+<div class="fold s">
+```{r}
+# Plot ROI coefficient in brain
+p.roi.coef <- og.importance %>%
+  filter(Model=="Elastic Net") %>%
+  # Remove the non-brain ROI terms
+  filter(!(Term %in% c("Sex_Male", "Age_Baseline"))) %>%
+  left_join(., ggseg.aparc, by=c("Term"="tau_ROI")) %>%
+  rename("region"="ggseg_ROI") %>%
+  filter(!is.na(region)) %>%
+  # Convert to brain representation using Desikan-Killiany (dk) atlas
+  ggseg(atlas="dk", mapping=aes(fill=Coefficient, label=region)) +
+  ggtitle("Elastic Net ROI Coefficients") +
+  # Label left and right hemispheres
+  annotate(geom="text", x=410, y=-100, label="Left") +
+  annotate(geom="text", x=1290, y=-100, label="Right") +
+  scale_fill_continuous_divergingx(palette = 'RdBu', rev=T, mid = 0) +
+  # Use calibri font
+  theme(axis.text=element_blank(),
+        axis.title.x = element_text(family="calibri"),
+        legend.title=element_text(family="calibri"),
+        legend.text=element_text(family="calibri"),
+        plot.title=element_text(hjust=0.5, family="calibri"),
+        text=element_text(family="calibri"))
+
+# Convert to interactive plotly visualization
+ggplotly(p.roi.coef, dynamicTicks = T, tooltip=c("label", "fill"), width=700, height=300)
+```
+</div>
+
+### Save data for Shiny deployment
+
+Save the model importance info for Shiny visualization in deployment:
+```{r}
+save(og.importance, ggseg.aparc, ggseg.aseg, file="../RData/Variable_Importance.RData")
+```
+
+
+<a class="et_pb_button" title="Previous page" href="https://anniegbryant.github.io/DA5030_Final_Project/4_Modeling_PCA.html">Previous page: Modeling (PCA)</a>
+<a class="et_pb_button" title="Next page" href="https://anniegbryant.github.io/DA5030_Final_Project/Pages/6_Model_Deployment_Prep.html">Next page: Model Deployment</a>

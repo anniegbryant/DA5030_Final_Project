@@ -1,0 +1,6 @@
+"0","encrypt_subj_real(subj.info)
+"
+"2","Error: Problem with `mutate()` input `EXAMDATE`.
+[31mx[39m binary + is not defined for ""Date"" objects
+[34mi[39m Input `EXAMDATE` is `EXAMDATE + EXAMDATE + 14`.
+"

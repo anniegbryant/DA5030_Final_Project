@@ -1539,7 +1539,7 @@ div.tocify {
 </div>
 <div id="requirements-assumptions-constraints" class="section level3">
 <h3>Requirements, Assumptions, Constraints</h3>
-<p>The only constraint is that I cannot directly share the full dataset as downloaded from ADNI, though I encourage anyone interested in gaining access to register for free at <a href="http://adni.loni.usc.edu/" class="uri">http://adni.loni.usc.edu/</a>. Instead, I will use the R library <code>fakeR</code> (<a href="https://cran.r-project.org/web/packages/fakeR/vignettes/my-vignette.html">vignette</a>) to simulate the two datasets I will access from ADNI to publish in my GitHub repository, so that the interested reader can follow along with consistent data structures.</p>
+<p>The only constraint is that I cannot directly share the full dataset as downloaded from ADNI, though I encourage anyone interested in gaining access to register for free at <a href="http://adni.loni.usc.edu/" class="uri">http://adni.loni.usc.edu/</a>. Instead, I wrote a custom encryption function to simulate fake subject identifier IDs, exam dates, tau-PET uptake values, region of interest volumes, age, sex, and CDR-Sum of Boxes scores based on the existing data distribution. These simulated datasets are hosted in my <a href="https://github.com/anniegbryant/DA5030_Final_Project">GitHub repo</a>. Please note that the actual ADNI data are used in this file.</p>
 </div>
 </div>
 <div id="determine-data-mining-goals" class="section level2">

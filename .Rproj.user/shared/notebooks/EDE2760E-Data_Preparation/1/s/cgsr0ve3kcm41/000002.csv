@@ -1,4 +1,0 @@
-"0","tau.df <- read.csv(""../../ADNI_Data/Raw_Data/UCBERKELEYAV1451_PVC_05_12_20.csv"", stringsAsFactors = T)"
-"0",""
-"0","# Cast exam date as a Date"
-"0","tau.df$EXAMDATE <- as.Date(as.character(tau.df$EXAMDATE), format=""%m/%d/%Y"")"
